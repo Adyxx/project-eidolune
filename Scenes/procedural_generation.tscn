@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://ctgs1p2i2xfkr"]
 
 [ext_resource type="Texture2D" uid="uid://cnhsliuefkqkm" path="res://Assets/test_tiles.png" id="1_rwmo6"]
-[ext_resource type="Script" uid="uid://cqjtih7xn82l1" path="res://Scenes/procedural_generation.gd" id="2_8bggo"]
+[ext_resource type="Script" uid="uid://cqjtih7xn82l1" path="res://Scripts/procedural_generation.gd" id="2_8bggo"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_boltm"]
 texture = ExtResource("1_rwmo6")
@@ -1046,3 +1046,5 @@ script = ExtResource("2_8bggo")
 offset_right = 154.0
 offset_bottom = 25.0
 text = "Press."
+
+[connection signal="pressed" from="TileMapLayer/CanvasLayer/Button" to="TileMapLayer" method="_on_button_pressed"]
