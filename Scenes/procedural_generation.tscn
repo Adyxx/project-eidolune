@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://ctgs1p2i2xfkr"]
 
+[ext_resource type="Script" uid="uid://djqdv4o8un60c" path="res://Scripts/camera_2d.gd" id="1_8bggo"]
 [ext_resource type="Texture2D" uid="uid://cnhsliuefkqkm" path="res://Assets/test_tiles.png" id="1_rwmo6"]
 [ext_resource type="Script" uid="uid://cqjtih7xn82l1" path="res://Scripts/procedural_generation.gd" id="2_8bggo"]
 
@@ -1035,6 +1036,9 @@ texture_region_size = Vector2i(128, 128)
 sources/0 = SubResource("TileSetAtlasSource_boltm")
 
 [node name="ProceduralGeneration" type="Node2D" unique_id=626098093]
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=159704430]
+script = ExtResource("1_8bggo")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=1944869858]
 tile_set = SubResource("TileSet_4exj2")
