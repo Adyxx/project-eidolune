@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://ctgs1p2i2xfkr"]
 
 [ext_resource type="Script" uid="uid://djqdv4o8un60c" path="res://Scripts/camera_2d.gd" id="1_8bggo"]
-[ext_resource type="Script" uid="uid://cqjtih7xn82l1" path="res://Scripts/procedural_generation.gd" id="2_8bggo"]
+[ext_resource type="Script" uid="uid://cqjtih7xn82l1" path="res://Scripts/World/procedural_generation.gd" id="2_8bggo"]
 [ext_resource type="Texture2D" uid="uid://dv8n1ghknnhiu" path="res://Assets/test_tiles2.png" id="2_22jkl"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_boltm"]

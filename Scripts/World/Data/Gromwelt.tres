@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="RegionDefinition" format=3 uid="uid://bt7rvg7hh6ur2"]
+
+[ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://Scripts/World/Definitions/region_definition.gd" id="1_p302b"]
+[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://Scripts/World/Definitions/sector_definition.gd" id="2_7gc3k"]
+
+[resource]
+script = ExtResource("1_p302b")
+metadata/_custom_type_script = "uid://c7ay238gyh3ys"
