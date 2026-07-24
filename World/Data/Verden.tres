@@ -1,0 +1,183 @@
+[gd_resource type="Resource" script_class="RegionDefinition" format=3 uid="uid://ra1sc2xllm8c"]
+
+[ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_k4txx"]
+[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_p13ah"]
+[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="3_bxhxp"]
+[ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="4_1kp2y"]
+[ext_resource type="Script" uid="uid://c0wr8n57curpx" path="res://World/Definitions/noise_settings_definition.gd" id="5_ets05"]
+[ext_resource type="Script" uid="uid://6ujgp18ts3mr" path="res://World/Definitions/terrain_visual_definition.gd" id="6_sd3ue"]
+[ext_resource type="Texture2D" uid="uid://dv8n1ghknnhiu" path="res://Assets/test_tiles2.png" id="7_b8o83"]
+
+[sub_resource type="Resource" id="Resource_vslmd"]
+script = ExtResource("5_ets05")
+type = 3
+frequency = 0.09
+octaves = 1
+metadata/_custom_type_script = "uid://c0wr8n57curpx"
+
+[sub_resource type="Resource" id="Resource_o3437"]
+script = ExtResource("4_1kp2y")
+terrain_type = 3
+coverage = 40.0
+noise_settings = SubResource("Resource_vslmd")
+metadata/_custom_type_script = "uid://wfsa5pu4ug23"
+
+[sub_resource type="Resource" id="Resource_dhpej"]
+script = ExtResource("6_sd3ue")
+terrain_type = 3
+tile_coordinates = Array[Vector2i]([Vector2i(2, 3)])
+metadata/_custom_type_script = "uid://6ujgp18ts3mr"
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_m1e1x"]
+texture = ExtResource("7_b8o83")
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+2:3/0 = 0
+3:3/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_nixqq"]
+sources/0 = SubResource("TileSetAtlasSource_m1e1x")
+
+[sub_resource type="Resource" id="Resource_8kwgv"]
+script = ExtResource("2_p13ah")
+sector_name = "SecA"
+size_weight = 3.0
+terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_o3437")])
+tile_set = SubResource("TileSet_nixqq")
+terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_dhpej")])
+metadata/_custom_type_script = "uid://cochdag01raa1"
+
+[sub_resource type="Resource" id="Resource_lequ8"]
+script = ExtResource("5_ets05")
+type = 1
+frequency = 0.5
+octaves = 2
+metadata/_custom_type_script = "uid://c0wr8n57curpx"
+
+[sub_resource type="Resource" id="Resource_wbg31"]
+script = ExtResource("4_1kp2y")
+terrain_type = 5
+coverage = 80.0
+noise_settings = SubResource("Resource_lequ8")
+metadata/_custom_type_script = "uid://wfsa5pu4ug23"
+
+[sub_resource type="Resource" id="Resource_brphk"]
+script = ExtResource("6_sd3ue")
+terrain_type = 5
+tile_coordinates = Array[Vector2i]([Vector2i(2, 2)])
+metadata/_custom_type_script = "uid://6ujgp18ts3mr"
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_sd3ue"]
+texture = ExtResource("7_b8o83")
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+2:3/0 = 0
+3:3/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_yp1m1"]
+sources/0 = SubResource("TileSetAtlasSource_sd3ue")
+
+[sub_resource type="Resource" id="Resource_gw3kp"]
+script = ExtResource("2_p13ah")
+sector_name = "SecB"
+size_weight = 2.0
+terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_wbg31")])
+tile_set = SubResource("TileSet_yp1m1")
+terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_brphk")])
+metadata/_custom_type_script = "uid://cochdag01raa1"
+
+[sub_resource type="Resource" id="Resource_xy52i"]
+script = ExtResource("5_ets05")
+frequency = 0.005
+octaves = 1
+metadata/_custom_type_script = "uid://c0wr8n57curpx"
+
+[sub_resource type="Resource" id="Resource_s2mkd"]
+script = ExtResource("4_1kp2y")
+coverage = 40.0
+noise_settings = SubResource("Resource_xy52i")
+metadata/_custom_type_script = "uid://wfsa5pu4ug23"
+
+[sub_resource type="Resource" id="Resource_8tj7i"]
+script = ExtResource("5_ets05")
+type = 3
+frequency = 0.003
+octaves = 1
+metadata/_custom_type_script = "uid://c0wr8n57curpx"
+
+[sub_resource type="Resource" id="Resource_n0rac"]
+script = ExtResource("4_1kp2y")
+terrain_type = 4
+coverage = 60.0
+noise_settings = SubResource("Resource_8tj7i")
+metadata/_custom_type_script = "uid://wfsa5pu4ug23"
+
+[sub_resource type="Resource" id="Resource_742ax"]
+script = ExtResource("6_sd3ue")
+tile_coordinates = Array[Vector2i]([Vector2i(0, 3)])
+metadata/_custom_type_script = "uid://6ujgp18ts3mr"
+
+[sub_resource type="Resource" id="Resource_nyngi"]
+script = ExtResource("6_sd3ue")
+terrain_type = 4
+tile_coordinates = Array[Vector2i]([Vector2i(0, 2)])
+metadata/_custom_type_script = "uid://6ujgp18ts3mr"
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_b8o83"]
+texture = ExtResource("7_b8o83")
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+2:3/0 = 0
+3:3/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_xhibl"]
+sources/0 = SubResource("TileSetAtlasSource_b8o83")
+
+[sub_resource type="Resource" id="Resource_keawp"]
+script = ExtResource("2_p13ah")
+sector_name = "SecC"
+terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_s2mkd"), SubResource("Resource_n0rac")])
+tile_set = SubResource("TileSet_xhibl")
+terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_742ax"), SubResource("Resource_nyngi")])
+metadata/_custom_type_script = "uid://cochdag01raa1"
+
+[resource]
+script = ExtResource("1_k4txx")
+sectors = Array[ExtResource("2_p13ah")]([SubResource("Resource_8kwgv"), SubResource("Resource_gw3kp"), SubResource("Resource_keawp")])
+metadata/_custom_type_script = "uid://c7ay238gyh3ys"

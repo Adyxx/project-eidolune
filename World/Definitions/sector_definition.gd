@@ -11,3 +11,5 @@ class_name SectorDefinition
 @export var landmarks: Array[LandmarkDefinition] = []
 
 @export var tile_set: TileSet
+
+@export var terrain_visuals:Array[TerrainVisualDefinition]
