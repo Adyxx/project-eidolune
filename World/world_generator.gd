@@ -21,8 +21,8 @@ func _new_world() -> void:
 	NoiseInitializer.initialize(context, world.main_seed)
 	WorldLoader.new().load_definitions(world)
 	_generate_world()
-
-
+	
+"""
 func _render_world() -> void:
 	clear() 
 	for x in range(WorldSettings.MAP_WIDTH):
@@ -34,6 +34,52 @@ func _render_world() -> void:
 				set_cell(Vector2i(x, y), 0, Vector2i(1, 0)) 
 			else:
 				set_cell(Vector2i(x, y), 0, Vector2i(0, 0)) 
+"""
+
+enum RenderMode {
+	LAND_MASS,
+	REGIONS,
+	SECTORS
+}
+
+@export var current_render_mode: RenderMode = RenderMode.SECTORS
+
+
+func _render_world() -> void:
+	clear() 
+	
+	for x in range(WorldSettings.MAP_WIDTH):
+		for y in range(WorldSettings.MAP_HEIGHT):
+			var idx = sample.index(x, y)
+			
+			if not sample.is_land(x, y):
+				set_cell(Vector2i(x, y), 0, Vector2i(0, 0))
+				continue
+				
+			match current_render_mode:
+				
+				RenderMode.LAND_MASS:
+					set_cell(Vector2i(x, y), 0, Vector2i(1, 0))
+					
+				RenderMode.REGIONS:
+					var region_id = context.region_id_map[idx]
+					
+					if region_id != -1:
+						var tile_x = 1 + (region_id % 3)
+						set_cell(Vector2i(x, y), 0, Vector2i(tile_x, 0)) 
+					else:
+						set_cell(Vector2i(x, y), 0, Vector2i(1, 3))
+						
+				RenderMode.SECTORS:
+					var sector_id = context.sector_id_map[idx]
+					
+					if sector_id != -1:
+						var tile_x = 1 + (sector_id % 3)
+						var tile_y = (sector_id / 3) % 3
+						set_cell(Vector2i(x, y), 0, Vector2i(tile_x, tile_y))
+					else:
+						set_cell(Vector2i(x, y), 0, Vector2i(1, 3))
+
 
 
 func _generate_world() -> void:
@@ -43,15 +89,22 @@ func _generate_world() -> void:
 	context.moisture_map.resize(total_cells)
 	context.land_mask_map.resize(total_cells)
 	
+	context.region_id_map.resize(total_cells)
+
+
+	
 	HeightClimateGenerator.new(context).generate()
+	ContinentGenerator.new(context, sample).generate()
+	RegionGenerator.new(context, sample, world).generate()
+	
+	SectorGenerator.new(context, sample, world).generate()
+	
+	_render_world()
 	
 	# FIRST: CREATE WORLD SHAPE. WE GET LAND MASS.
 	# TODO: Use masks, maybe warps and maybe other parameters to create interesting land shape.
 	# For now, let's work with assumption that this is one large continent surrounded by water and not multiple islands.
 	
-	ContinentGenerator.new(context, sample).generate()
-	
-
 	# SECOND: SPLIT THE LAND MASS INTO DIFFERENT SIZE REGIONS 
 	# TODO: randomly place Region's var center : Vector2 somewhere on the land mass.
 	
@@ -60,8 +113,6 @@ func _generate_world() -> void:
 	
 	# Use voronoi - Grow the region from center BASED ON RegionDefinition.size_weight.
 	# Regions with higher size_weight should have more land than regions with lower size_weight
-	
-	RegionGenerator.new(sample, world).generate()
 	
 
 	# THIRD: THIS IS REALISTICALLY WHERE RIVER PLACEMENT WILL BE.
@@ -76,8 +127,6 @@ func _generate_world() -> void:
 	# Then the algorith should probably not grow the region back to something like AAAAA~~~~AABB
 	# that would look kind of weird.
 	
-	RiverGenerator.new().generate() # maybe other way around
-	
 
 	# FOURTH: SPLIT THE REGIONS INTO DIFFERENT SIZE SECTORS
 	# TODO: randomly place Sector's var center : Vector2 somewhere inside its specific Region.
@@ -86,8 +135,6 @@ func _generate_world() -> void:
 	
 	# Use voronoi - Grow the segment from center BASED ON SectorDefinition.size_weight
 	# Sectors with higher size_weight should have more land than sectors with lower size_weight
-	
-	SectorGenerator.new().generate() # maybe other way around
 	
 	# FIFTH: MAJOR LANDMARKS
 	# TODO: place major Landmarks.
@@ -102,8 +149,6 @@ func _generate_world() -> void:
 	# We need to fix the world - and create the spot for the said landmark. This needs to be fully deterministic,
 	# because same main_seed of the world need to always guarantee same world shape.
 	
-	LandmarkGenerator.new().generate()
-	
 
 	# SIXTH: PATHS
 	# TODO: Place some paths between cities, villages, etc.
@@ -116,7 +161,6 @@ func _generate_world() -> void:
 	# Int as "bridge count" might be maybe better than bool "guarantee_bridge" ?? 
 	
 
-	
 	# SEVENTH: MINOR LANDMARKS
 	# TODO: place minor Landmarks.
 	# Minor Landmarks include things that visually enchance the world but are not so gameplay important.
@@ -138,8 +182,4 @@ func _generate_world() -> void:
 	# 1. increase spawn chance - Increase local density. (ex. spawnChance: 0.02 -> 0.04)
 	# 2. Condition Relaxation. (ex. reduce requirment from moisture > 0.7 to moisture > 0.68)
 	# repeat 1. > 2. until "min_required_patches" is fulfilled.
-	
-	
-	
-	_render_world()
 	

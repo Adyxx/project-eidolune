@@ -4,7 +4,8 @@ class_name WorldLoader
 func load_definitions(world: World) -> void:
 	var definitions: Array[RegionDefinition] = [
 		load("res://World/Data/Verden.tres"),
-		load("res://World/Data/Gromwelt.tres")
+		load("res://World/Data/Gromwelt.tres"),
+		load("res://World/Data/Altre.tres")
 	]
 
 	for definition in definitions:

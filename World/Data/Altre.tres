@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="RegionDefinition" format=3 uid="uid://bh0id80xthvpy"]
+
+[ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_3ha6i"]
+[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_meo2x"]
+[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="3_pv5gh"]
+[ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="4_vq85h"]
+[ext_resource type="Script" uid="uid://6ujgp18ts3mr" path="res://World/Definitions/terrain_visual_definition.gd" id="5_7nmci"]
+
+[sub_resource type="Resource" id="Resource_8bggo"]
+script = ExtResource("2_meo2x")
+sector_name = "qqq"
+metadata/_custom_type_script = "uid://cochdag01raa1"
+
+[sub_resource type="Resource" id="Resource_pv5gh"]
+script = ExtResource("2_meo2x")
+sector_name = "sss"
+size_weight = 0.1
+metadata/_custom_type_script = "uid://cochdag01raa1"
+
+[resource]
+script = ExtResource("1_3ha6i")
+region_name = "Altre"
+size_weight = 1.5
+sectors = Array[ExtResource("2_meo2x")]([SubResource("Resource_8bggo"), SubResource("Resource_pv5gh")])
+metadata/_custom_type_script = "uid://c7ay238gyh3ys"
