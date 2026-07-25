@@ -15,6 +15,12 @@ var land_mask_map := PackedByteArray()
 var region_id_map := PackedInt32Array()
 var sector_id_map := PackedInt32Array()
 
+
+
+var world_center := Vector2(
+	WorldSettings.MAP_WIDTH / 2.0,
+	WorldSettings.MAP_HEIGHT / 2.0
+)
 """
 maybe later also...
 
@@ -22,8 +28,3 @@ road_id_map
 river_id_map
 
 """
-
-var world_center := Vector2(
-	WorldSettings.MAP_WIDTH / 2.0,
-	WorldSettings.MAP_HEIGHT / 2.0
-)

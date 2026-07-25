@@ -22,19 +22,6 @@ func _new_world() -> void:
 	WorldLoader.new().load_definitions(world)
 	_generate_world()
 	
-"""
-func _render_world() -> void:
-	clear() 
-	for x in range(WorldSettings.MAP_WIDTH):
-		for y in range(WorldSettings.MAP_HEIGHT):
-			var idx = sample.index(x, y)
-			var is_land = context.land_mask_map[idx] == 1
-			
-			if is_land:
-				set_cell(Vector2i(x, y), 0, Vector2i(1, 0)) 
-			else:
-				set_cell(Vector2i(x, y), 0, Vector2i(0, 0)) 
-"""
 
 enum RenderMode {
 	LAND_MASS,
@@ -48,58 +35,131 @@ enum RenderMode {
 func _render_world() -> void:
 	clear() 
 	
-	for x in range(WorldSettings.MAP_WIDTH):
-		for y in range(WorldSettings.MAP_HEIGHT):
-			var idx = sample.index(x, y)
+	var width: int = WorldSettings.MAP_WIDTH
+	var height: int = WorldSettings.MAP_HEIGHT
+	var land_mask: PackedByteArray = context.land_mask_map
+	
+	var active_map: PackedInt32Array
+	if current_render_mode == RenderMode.REGIONS:
+		active_map = context.region_id_map
+	elif current_render_mode == RenderMode.SECTORS:
+		active_map = context.sector_id_map
+
+	var cell_pos := Vector2i.ZERO
+	var source_id: int = 0
+	
+	for y in range(height):
+		cell_pos.y = y
+		var row_offset: int = y * width
+		
+		for x in range(width):
+			cell_pos.x = x
+			var idx: int = x + row_offset
 			
-			if not sample.is_land(x, y):
-				set_cell(Vector2i(x, y), 0, Vector2i(0, 0))
+			if land_mask[idx] == 0:
+				set_cell(cell_pos, source_id, Vector2i(0, 0))
 				continue
 				
-			match current_render_mode:
-				
-				RenderMode.LAND_MASS:
-					set_cell(Vector2i(x, y), 0, Vector2i(1, 0))
-					
-				RenderMode.REGIONS:
-					var region_id = context.region_id_map[idx]
-					
-					if region_id != -1:
-						var tile_x = 1 + (region_id % 3)
-						set_cell(Vector2i(x, y), 0, Vector2i(tile_x, 0)) 
+			if current_render_mode == RenderMode.LAND_MASS:
+				set_cell(cell_pos, source_id, Vector2i(1, 0))
+			else:
+				var target_id: int = active_map[idx]
+				if target_id != -1:
+					if current_render_mode == RenderMode.REGIONS:
+						var tile_x: int = 1 + (target_id % 3)
+						set_cell(cell_pos, source_id, Vector2i(tile_x, 0))
 					else:
-						set_cell(Vector2i(x, y), 0, Vector2i(1, 3))
-						
-				RenderMode.SECTORS:
-					var sector_id = context.sector_id_map[idx]
-					
-					if sector_id != -1:
-						var tile_x = 1 + (sector_id % 3)
-						var tile_y = (sector_id / 3) % 3
-						set_cell(Vector2i(x, y), 0, Vector2i(tile_x, tile_y))
-					else:
-						set_cell(Vector2i(x, y), 0, Vector2i(1, 3))
+						var tile_x: int = 1 + (target_id % 3)
+						var tile_y: int = (target_id / 3) % 3
+						set_cell(cell_pos, source_id, Vector2i(tile_x, tile_y))
+				else:
+					set_cell(cell_pos, source_id, Vector2i(1, 3))
 
 
 
 func _generate_world() -> void:
-	var total_cells = WorldSettings.MAP_WIDTH * WorldSettings.MAP_HEIGHT
-	context.height_map.resize(total_cells)
-	context.temperature_map.resize(total_cells)
-	context.moisture_map.resize(total_cells)
-	context.land_mask_map.resize(total_cells)
+	var mask_start = Time.get_ticks_msec()
 	
-	context.region_id_map.resize(total_cells)
+	var width = WorldSettings.MAP_WIDTH
+	var height = WorldSettings.MAP_HEIGHT
+
+	var climate_gen_cs = load("res://World/Generation/climate_generator.cs").new()
+	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
+	var sector_gen_cs = load("res://World/Generation/sector_generator.cs").new()
 
 
+	var results: Dictionary = climate_gen_cs.RunGeneration(
+		WorldSettings.MAP_WIDTH,
+		WorldSettings.MAP_HEIGHT,
+		WorldSettings.SEA_LEVEL,
+		WorldSettings.CONTINENT_FALLOFF,
+		WorldSettings.DOMAIN_WARP_STRENGTH,
+		context.height,
+		context.temperature,
+		context.moisture,
+		context.warp_x,
+		context.warp_y
+	)
 	
-	HeightClimateGenerator.new(context).generate()
-	ContinentGenerator.new(context, sample).generate()
-	RegionGenerator.new(context, sample, world).generate()
+	context.height_map = results["height_map"]
+	context.temperature_map = results["temperature_map"]
+	context.moisture_map = results["moisture_map"]
+	context.land_mask_map = results["land_mask_map"]
+
+	var region_start = Time.get_ticks_msec()
+
+	var num_regions = world.regions.size()
 	
-	SectorGenerator.new(context, sample, world).generate()
+	var region_weights: Array[float] = []
+	for r in world.regions:
+		region_weights.append(r.definition.size_weight)
+		
+	var region_results = region_gen_cs.RunRegionGeneration(
+		width, height, num_regions, 
+		context.height_map, context.land_mask_map, region_weights
+	)
+	
+	context.region_id_map = region_results["region_map"]
+	
+	var rx = region_results["centers_x"]
+	var ry = region_results["centers_y"]
+	for r_id in range(num_regions):
+		world.regions[r_id].center = Vector2(rx[r_id], ry[r_id])
+
+	var sector_start = Time.get_ticks_msec()
+
+	var flat_sectors = []
+	var sector_to_region_id: Array[int] = []
+	var sector_weights: Array[float] = []
+	
+	for r_id in range(num_regions):
+		for sector in world.regions[r_id].sectors:
+			flat_sectors.append(sector)
+			sector_to_region_id.append(r_id)
+			sector_weights.append(sector.definition.size_weight)
+			
+	var total_sectors = flat_sectors.size()
+	
+	if total_sectors > 0:
+		var sector_map_result = sector_gen_cs.RunSectorGeneration(
+			width, height, total_sectors,
+			context.region_id_map, sector_to_region_id, 
+			context.height_map, sector_weights
+		)
+		
+		context.sector_id_map = sector_map_result
+
+	var render_start = Time.get_ticks_msec()
 	
 	_render_world()
+	
+	var end = Time.get_ticks_msec()
+
+	print("Generating land:", (region_start-mask_start) / 1000.0, " seconds")
+	print("Generating regions:", (sector_start-region_start) / 1000.0, " seconds")
+	print("Generation sectors:", (render_start-sector_start) / 1000.0, " seconds")
+	print("Rendering :", (end-render_start) / 1000.0, " seconds")
+	
 	
 	# FIRST: CREATE WORLD SHAPE. WE GET LAND MASS.
 	# TODO: Use masks, maybe warps and maybe other parameters to create interesting land shape.
@@ -182,4 +242,3 @@ func _generate_world() -> void:
 	# 1. increase spawn chance - Increase local density. (ex. spawnChance: 0.02 -> 0.04)
 	# 2. Condition Relaxation. (ex. reduce requirment from moisture > 0.7 to moisture > 0.68)
 	# repeat 1. > 2. until "min_required_patches" is fulfilled.
-	
