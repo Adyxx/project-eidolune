@@ -86,7 +86,9 @@ func _generate_world() -> void:
 	var climate_gen_cs = load("res://World/Generation/climate_generator.cs").new()
 	var sector_gen_cs = load("res://World/Generation/sector_generator.cs").new()
 	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
-
+	var river_gen_cs = load("res://World/Generation/river_generator.cs").new()
+	
+	
 	var results: Dictionary = climate_gen_cs.RunGeneration(
 		WorldSettings.MAP_WIDTH,
 		WorldSettings.MAP_HEIGHT,
@@ -112,19 +114,22 @@ func _generate_world() -> void:
 	context.playable_map.resize(width * height)
 	
 
-	var region_results = region_gen_cs.GenerateRegions(
-		width,
-		height,
-		world,
-		context
-	)
+	var region_results = region_gen_cs.GenerateRegions(width, height, world, context)
 
-	context.region_id_map = region_results["region_map"]
+	context.region_id_map = region_results
 
 	var sector_start = Time.get_ticks_msec()
 
+	# TODO: Implement validation and retry for meeting the min size requirment.
+	# Currently the min sizes of sectors are not guaranteed.
+	
 	var sector_map_result = sector_gen_cs.RunSectorGeneration(width, height, world, context)
 	context.sector_id_map = sector_map_result
+	
+	var river_start = Time.get_ticks_msec()
+	
+	var river_results = river_gen_cs.GenerateRivers(width, height, world, context)
+	#context.river_id_map = river_results
 	
 	var render_start = Time.get_ticks_msec()
 	
@@ -134,7 +139,8 @@ func _generate_world() -> void:
 
 	print("Generating land:", (region_start-mask_start) / 1000.0, " seconds")
 	print("Generating regions:", (sector_start-region_start) / 1000.0, " seconds")
-	print("Generation sectors:", (render_start-sector_start) / 1000.0, " seconds")
+	print("Generation sectors:", (river_start-sector_start) / 1000.0, " seconds")
+	print("Generation rivers:", (render_start-river_start) / 1000.0, " seconds")
 	print("Rendering :", (end-render_start) / 1000.0, " seconds")
 	
 	

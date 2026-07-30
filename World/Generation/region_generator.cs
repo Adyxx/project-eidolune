@@ -75,7 +75,7 @@ public partial class region_generator : RefCounted
 		}
 	}
 
-	public Godot.Collections.Dictionary GenerateRegions(
+	public int[] GenerateRegions(
 		int width,
 		int height,
 		GodotObject world,
@@ -200,12 +200,7 @@ public partial class region_generator : RefCounted
 			return null;
 		}
 
-		var output = new Godot.Collections.Dictionary();
-		output["region_map"] = _regionMap;
-		output["centers_x"] = _finalCentersX;
-		output["centers_y"] = _finalCentersY;
-
-		return output;
+		return _regionMap;
 	}
 
 	/* Relocates region's possion point */
