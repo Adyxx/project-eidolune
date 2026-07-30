@@ -1,127 +1,323 @@
-using Godot;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using Godot;
 
 public partial class sector_generator : RefCounted
 {
-	public int[] RunSectorGeneration(
-		int width, int height, int totalSectors, int[] regionMap, int[] sectorToRegionId, float[] heightMap, float[] sectorWeights
-	)
-	{
-		int totalCells = width * height;
-		int[] sectorMap = new int[totalCells];
-		Array.Fill(sectorMap, -1);
+	private int _width;
+	private int _height;
+	private int _totalCells;
+	private int _worldSeed;
 
-		Dictionary<int, List<int>> cellsByRegion = new Dictionary<int, List<int>>();
-		for (int i = 0; i < totalCells; i++)
+	private int[] _regionMap;
+	private float[] _heightMap;
+	private int[] _sectorMap;
+
+	private int _totalSectorsCount;
+	private int[] _sectorRegionIds;
+	private int[] _sectorMinAreas;
+	private int[] _currentSectorAreas;
+	private int[] _sectorCentersIdx;
+
+	private int[][] _regionCells;
+	private PriorityQueue<int, float> _openSet;
+
+	private struct PlacementSector
+	{
+		public int GlobalId;
+		public int RegionId;
+		public int MinArea;
+	}
+
+	private readonly struct Direction
+	{
+		public readonly int Offset;
+		public readonly bool CheckBounds;
+		public readonly int XLimit;
+
+		public Direction(int offset, bool checkBounds, int xLimit)
 		{
-			int rId = regionMap[i];
-			if (rId != -1)
+			Offset = offset;
+			CheckBounds = checkBounds;
+			XLimit = xLimit;
+		}
+	}
+
+	public int[] RunSectorGeneration(int width, int height, GodotObject world, GodotObject context)
+	{
+		InitializeGenerator(width, height, world, context);
+
+		List<PlacementSector> sortedSectors = LoadAndSortSectors(world);
+		if (_totalSectorsCount == 0)
+			return _sectorMap;
+
+		PlaceSectorSeeds(sortedSectors);
+
+		GrowSectorsToMinimums();
+
+
+		FinishClaimingRegions();
+
+		return _sectorMap;
+	}
+
+	private void InitializeGenerator(int width, int height, GodotObject world, GodotObject context)
+	{
+		_width = width;
+		_height = height;
+		_totalCells = width * height;
+		_worldSeed = (int)world.Get("main_seed");
+
+		_regionMap = ((Variant)context.Get("region_id_map")).AsInt32Array();
+		_heightMap = ((Variant)context.Get("height_map")).AsFloat32Array();
+
+		_sectorMap = new int[_totalCells];
+		Array.Fill(_sectorMap, -1);
+
+		if (_openSet == null)
+			_openSet = new PriorityQueue<int, float>(_totalCells / 10);
+		else
+			_openSet.Clear();
+
+		Godot.Collections.Array regionsArray = (Godot.Collections.Array)world.Get("regions");
+		int numRegions = regionsArray.Count;
+
+		int[] regionCellCounts = ArrayPool<int>.Shared.Rent(numRegions);
+		Array.Clear(regionCellCounts, 0, numRegions);
+
+		for (int i = 0; i < _totalCells; i++)
+		{
+			int rId = _regionMap[i];
+			if (rId >= 0 && rId < numRegions)
+				regionCellCounts[rId]++;
+		}
+
+		_regionCells = new int[numRegions][];
+		int[] writeOffsets = ArrayPool<int>.Shared.Rent(numRegions);
+		Array.Clear(writeOffsets, 0, numRegions);
+
+		for (int r = 0; r < numRegions; r++)
+			_regionCells[r] = new int[regionCellCounts[r]];
+
+		for (int i = 0; i < _totalCells; i++)
+		{
+			int rId = _regionMap[i];
+			if (rId >= 0 && rId < numRegions)
+				_regionCells[rId][writeOffsets[rId]++] = i;
+		}
+
+		ArrayPool<int>.Shared.Return(regionCellCounts);
+		ArrayPool<int>.Shared.Return(writeOffsets);
+	}
+
+	private List<PlacementSector> LoadAndSortSectors(GodotObject world)
+	{
+		Godot.Collections.Array regionsArray = (Godot.Collections.Array)world.Get("regions");
+		int numRegions = regionsArray.Count;
+
+		List<PlacementSector> sectorsList = new List<PlacementSector>();
+		int globalIdCounter = 0;
+
+		for (int rId = 0; rId < numRegions; rId++)
+		{
+			GodotObject regionInstance = (GodotObject)regionsArray[rId];
+			Godot.Collections.Array sectorsArray = (Godot.Collections.Array)
+				regionInstance.Get("sectors");
+
+			for (int s = 0; s < sectorsArray.Count; s++)
 			{
-				if (!cellsByRegion.ContainsKey(rId))
-					cellsByRegion[rId] = new List<int>();
-				cellsByRegion[rId].Add(i);
+				GodotObject sectorInstance = (GodotObject)sectorsArray[s];
+				GodotObject definition = (GodotObject)sectorInstance.Get("definition");
+
+				sectorInstance.Set("id", globalIdCounter);
+
+				sectorsList.Add(
+					new PlacementSector
+					{
+						GlobalId = globalIdCounter,
+						RegionId = rId,
+						MinArea = (int)definition.Get("min_area"),
+					}
+				);
+
+				globalIdCounter++;
 			}
 		}
 
-		Queue<int>[] frontiersCurrent = new Queue<int>[totalSectors];
-		Queue<int>[] frontiersNext = new Queue<int>[totalSectors];
-		float[] accumulators = new float[totalSectors];
-		byte[] queuedMap = new byte[totalCells];
-		Random rand = new Random();
+		_totalSectorsCount = sectorsList.Count;
 
-		int[] dx = { 1, -1, 0, 0 };
-		int[] dy = { 0, 0, 1, -1 };
+		sectorsList.Sort((a, b) => b.MinArea - a.MinArea);
 
-		for (int s = 0; s < totalSectors; s++)
+		_sectorRegionIds = new int[_totalSectorsCount];
+		_sectorMinAreas = new int[_totalSectorsCount];
+		_currentSectorAreas = new int[_totalSectorsCount];
+		_sectorCentersIdx = new int[_totalSectorsCount];
+
+		for (int i = 0; i < sectorsList.Count; i++)
 		{
-			frontiersCurrent[s] = new Queue<int>();
-			frontiersNext[s] = new Queue<int>();
+			int gId = sectorsList[i].GlobalId;
+			_sectorRegionIds[gId] = sectorsList[i].RegionId;
+			_sectorMinAreas[gId] = sectorsList[i].MinArea;
+		}
 
-			int myRegionId = sectorToRegionId[s];
-			if (!cellsByRegion.ContainsKey(myRegionId) || cellsByRegion[myRegionId].Count == 0)
+		return sectorsList;
+	}
+
+	private void PlaceSectorSeeds(List<PlacementSector> sortedSectors)
+	{
+		Random rand = new Random(_worldSeed + 777);
+
+		for (int i = 0; i < sortedSectors.Count; i++)
+		{
+			int gId = sortedSectors[i].GlobalId;
+			int rId = sortedSectors[i].RegionId;
+			int[] availableCells = _regionCells[rId];
+
+			if (availableCells.Length == 0)
 				continue;
 
-			List<int> regionCells = cellsByRegion[myRegionId];
-			int cIdx = -1;
-			
+			int bestStartIdx = -1;
+
 			for (int attempt = 0; attempt < 50; attempt++)
 			{
-				int potentialIdx = regionCells[rand.Next(regionCells.Count)];
-				if (sectorMap[potentialIdx] == -1)
+				int potentialIdx = availableCells[rand.Next(availableCells.Length)];
+				if (_sectorMap[potentialIdx] == -1)
 				{
-					cIdx = potentialIdx;
+					bestStartIdx = potentialIdx;
 					break;
 				}
 			}
 
-			if (cIdx == -1) cIdx = regionCells[rand.Next(regionCells.Count)];
+			if (bestStartIdx == -1)
+				bestStartIdx = availableCells[rand.Next(availableCells.Length)];
 
-			sectorMap[cIdx] = s;
-			frontiersCurrent[s].Enqueue(cIdx);
-			queuedMap[cIdx] = 1;
+			_sectorMap[bestStartIdx] = gId;
+			_sectorCentersIdx[gId] = bestStartIdx;
+			_currentSectorAreas[gId] = 1;
 		}
+	}
 
-		bool activeGrowth = true;
-		while (activeGrowth)
+	private void GrowSectorsToMinimums()
+	{
+		_openSet.Clear();
+
+		int[] parentIndices = ArrayPool<int>.Shared.Rent(_totalCells);
+		Array.Fill(parentIndices, -1, 0, _totalCells);
+
+		Random rand = new Random(_worldSeed + 888);
+
+		for (int s = 0; s < _totalSectorsCount; s++)
 		{
-			activeGrowth = false;
-			for (int s = 0; s < totalSectors; s++)
+			int startIdx = _sectorCentersIdx[s];
+			if (startIdx != 0 || _sectorMap[startIdx] == s)
 			{
-				if (frontiersCurrent[s].Count == 0) continue;
-				activeGrowth = true;
-
-				accumulators[s] += sectorWeights[s];
-				if (accumulators[s] < 1.0f) continue;
-
-				int steps = (int)MathF.Floor(accumulators[s]);
-				accumulators[s] -= steps;
-
-				for (int step = 0; step < steps; step++)
-				{
-					if (frontiersCurrent[s].Count == 0) break;
-
-					while (frontiersCurrent[s].Count > 0)
-					{
-						int cellIdx = frontiersCurrent[s].Dequeue();
-						queuedMap[cellIdx] = 0;
-
-						if (sectorMap[cellIdx] != -1 && sectorMap[cellIdx] != s) continue;
-
-						int cx = cellIdx % width;
-						int cy = cellIdx / width;
-						int myRegionId = sectorToRegionId[s];
-
-						if (heightMap[cellIdx] > 0.45f && rand.NextDouble() > 0.3)
-						{
-							frontiersNext[s].Enqueue(cellIdx);
-							continue;
-						}
-
-						sectorMap[cellIdx] = s;
-
-						for (int i = 0; i < 4; i++)
-						{
-							int nx = cx + dx[i];
-							int ny = cy + dy[i];
-							if (nx >= 0 && ny >= 0 && nx < width && ny < height)
-							{
-								int nIdx = nx + ny * width;
-								if (regionMap[nIdx] == myRegionId && sectorMap[nIdx] == -1 && queuedMap[nIdx] == 0)
-								{
-									queuedMap[nIdx] = 1;
-									frontiersNext[s].Enqueue(nIdx);
-								}
-							}
-						}
-					}
-					var temp = frontiersCurrent[s];
-					frontiersCurrent[s] = frontiersNext[s];
-					frontiersNext[s] = temp;
-				}
+				parentIndices[startIdx] = startIdx;
+				_openSet.Enqueue(startIdx, 0f);
 			}
 		}
 
-		return sectorMap;
+		Direction[] localDirs = new Direction[]
+		{
+			new Direction(1, true, _width - 1),
+			new Direction(-1, true, 0),
+			new Direction(_width, false, 0),
+			new Direction(-_width, false, 0),
+		};
+
+		float terrainWeight = 200.0f;
+		float distanceWeight = 1.0f;
+
+		while (_openSet.Count > 0)
+		{
+			int idx = _openSet.Dequeue();
+			int currentSectorId = _sectorMap[idx];
+
+			if (_currentSectorAreas[currentSectorId] >= _sectorMinAreas[currentSectorId])
+				continue;
+
+			int cx = idx % _width;
+			float currentHeight = _heightMap[idx];
+			float parentHeight = _heightMap[parentIndices[idx]];
+			float heightDelta = MathF.Abs(currentHeight - parentHeight);
+
+			foreach (var dir in localDirs)
+			{
+				if (dir.CheckBounds && cx == dir.XLimit)
+					continue;
+
+				int nIdx = idx + dir.Offset;
+				if (nIdx < 0 || nIdx >= _totalCells)
+					continue;
+				int targetRegionId = _regionMap[nIdx];
+				if (targetRegionId == _sectorRegionIds[currentSectorId] && _sectorMap[nIdx] == -1)
+				{
+
+					if (_currentSectorAreas[currentSectorId] < _sectorMinAreas[currentSectorId])
+					{
+						_sectorMap[nIdx] = currentSectorId;
+						parentIndices[nIdx] = idx;
+						_currentSectorAreas[currentSectorId]++;
+						float cost =
+							distanceWeight
+							+ (heightDelta * terrainWeight)
+							+ ((float)rand.NextDouble() * 0.1f);
+						_openSet.Enqueue(nIdx, cost);
+					}
+				}
+			}
+		}
+		ArrayPool<int>.Shared.Return(parentIndices);
 	}
+
+	private void FinishClaimingRegions()
+	{
+		_openSet.Clear();
+		int[] parentIndices = ArrayPool<int>.Shared.Rent(_totalCells);
+		Array.Fill(parentIndices, -1, 0, _totalCells);
+		for (int i = 0; i < _totalCells; i++)
+		{
+			if (_sectorMap[i] != -1)
+			{
+				parentIndices[i] = i;
+				_openSet.Enqueue(i, 0f);
+			}
+		}
+		Direction[] localDirs = new Direction[]
+		{
+			new Direction(1, true, _width - 1),
+			new Direction(-1, true, 0),
+			new Direction(_width, false, 0),
+			new Direction(-_width, false, 0),
+		};
+		float terrainWeight = 200.0f;
+		float distanceWeight = 1.0f;
+		while (_openSet.Count > 0)
+		{
+			int idx = _openSet.Dequeue();
+			int currentSectorId = _sectorMap[idx];
+			int cx = idx % _width;
+			float currentHeight = _heightMap[idx];
+			float parentHeight = _heightMap[parentIndices[idx]];
+			float heightDelta = MathF.Abs(currentHeight - parentHeight);
+			foreach (var dir in localDirs)
+			{
+				if (dir.CheckBounds && cx == dir.XLimit)
+					continue;
+				int nIdx = idx + dir.Offset;
+				if (nIdx < 0 || nIdx >= _totalCells)
+					continue;
+				if (_regionMap[nIdx] == _sectorRegionIds[currentSectorId] && _sectorMap[nIdx] == -1)
+				{
+					_sectorMap[nIdx] = currentSectorId;
+					_currentSectorAreas[currentSectorId]++;
+					parentIndices[nIdx] = idx;
+					float cost = distanceWeight + (heightDelta * terrainWeight);
+					_openSet.Enqueue(nIdx, cost);
+				}
+			}
+		}
+		ArrayPool<int>.Shared.Return(parentIndices);
+	}
+
 }

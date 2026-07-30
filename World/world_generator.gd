@@ -111,7 +111,6 @@ func _generate_world() -> void:
 	context.playable_map = PackedByteArray()
 	context.playable_map.resize(width * height)
 	
-	var num_regions = world.regions.size()
 
 	var region_results = region_gen_cs.GenerateRegions(
 		width,
@@ -124,28 +123,9 @@ func _generate_world() -> void:
 
 	var sector_start = Time.get_ticks_msec()
 
-	var flat_sectors = []
-	var sector_to_region_id: Array[int] = []
-	var sector_weights: Array[float] = []
+	var sector_map_result = sector_gen_cs.RunSectorGeneration(width, height, world, context)
+	context.sector_id_map = sector_map_result
 	
-	for r_id in range(num_regions):
-		for sector in world.regions[r_id].sectors:
-			flat_sectors.append(sector)
-			sector_to_region_id.append(r_id)
-			sector_weights.append(sector.definition.size_weight)
-			
-			
-	var total_sectors = flat_sectors.size()
-	
-	if total_sectors > 0:
-		var sector_map_result = sector_gen_cs.RunSectorGeneration(
-			width, height, total_sectors,
-			context.region_id_map, sector_to_region_id, 
-			context.height_map, sector_weights
-		)
-		
-		context.sector_id_map = sector_map_result
-
 	var render_start = Time.get_ticks_msec()
 	
 	_render_world()

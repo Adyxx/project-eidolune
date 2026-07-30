@@ -4,8 +4,6 @@ class_name SectorDefinition
 
 @export var sector_name: String = ""
 
-@export var size_weight: float = 1.0
-
 @export_group("Size")
 @export var min_area: int = 0
 

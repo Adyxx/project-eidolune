@@ -53,10 +53,10 @@ sources/0 = SubResource("TileSetAtlasSource_m1e1x")
 [sub_resource type="Resource" id="Resource_8kwgv"]
 script = ExtResource("2_p13ah")
 sector_name = "SecA"
-size_weight = 3.0
+min_area = 2500
 terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_o3437")])
-tile_set = SubResource("TileSet_nixqq")
 terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_dhpej")])
+tile_set = SubResource("TileSet_nixqq")
 metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [sub_resource type="Resource" id="Resource_lequ8"]
@@ -104,10 +104,10 @@ sources/0 = SubResource("TileSetAtlasSource_sd3ue")
 [sub_resource type="Resource" id="Resource_gw3kp"]
 script = ExtResource("2_p13ah")
 sector_name = "SecB"
-size_weight = 2.0
+min_area = 2500
 terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_wbg31")])
-tile_set = SubResource("TileSet_yp1m1")
 terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_brphk")])
+tile_set = SubResource("TileSet_yp1m1")
 metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [sub_resource type="Resource" id="Resource_xy52i"]
@@ -172,9 +172,10 @@ sources/0 = SubResource("TileSetAtlasSource_b8o83")
 [sub_resource type="Resource" id="Resource_keawp"]
 script = ExtResource("2_p13ah")
 sector_name = "SecC"
+min_area = 2500
 terrain_rules = Array[ExtResource("4_1kp2y")]([SubResource("Resource_s2mkd"), SubResource("Resource_n0rac")])
-tile_set = SubResource("TileSet_xhibl")
 terrain_visuals = Array[ExtResource("6_sd3ue")]([SubResource("Resource_742ax"), SubResource("Resource_nyngi")])
+tile_set = SubResource("TileSet_xhibl")
 metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [resource]
