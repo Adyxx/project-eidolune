@@ -12,15 +12,17 @@ var temperature_map := PackedFloat32Array()
 var moisture_map := PackedFloat32Array() 
 
 var land_mask_map := PackedByteArray()
+var playable_map := PackedByteArray()
+
 var region_id_map := PackedInt32Array()
 var sector_id_map := PackedInt32Array()
-
 
 
 var world_center := Vector2(
 	WorldSettings.MAP_WIDTH / 2.0,
 	WorldSettings.MAP_HEIGHT / 2.0
 )
+
 """
 maybe later also...
 

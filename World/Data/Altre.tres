@@ -6,20 +6,14 @@
 [ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="4_vq85h"]
 [ext_resource type="Script" uid="uid://6ujgp18ts3mr" path="res://World/Definitions/terrain_visual_definition.gd" id="5_7nmci"]
 
-[sub_resource type="Resource" id="Resource_8bggo"]
+[sub_resource type="Resource" id="Resource_3ha6i"]
 script = ExtResource("2_meo2x")
-sector_name = "qqq"
-metadata/_custom_type_script = "uid://cochdag01raa1"
-
-[sub_resource type="Resource" id="Resource_pv5gh"]
-script = ExtResource("2_meo2x")
-sector_name = "sss"
-size_weight = 0.1
+sector_name = "llll"
 metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [resource]
 script = ExtResource("1_3ha6i")
 region_name = "Altre"
-size_weight = 1.5
-sectors = Array[ExtResource("2_meo2x")]([SubResource("Resource_8bggo"), SubResource("Resource_pv5gh")])
+min_area = 10000
+sectors = Array[ExtResource("2_meo2x")]([SubResource("Resource_3ha6i")])
 metadata/_custom_type_script = "uid://c7ay238gyh3ys"

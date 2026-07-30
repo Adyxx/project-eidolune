@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_p302b"]
 [ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_7gc3k"]
+[ext_resource type="Resource" uid="uid://bh0id80xthvpy" path="res://World/Data/Altre.tres" id="2_aw40h"]
 [ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="3_o3437"]
 [ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="4_vslmd"]
 [ext_resource type="Script" uid="uid://c0wr8n57curpx" path="res://World/Definitions/noise_settings_definition.gd" id="5_7gc3k"]
@@ -78,5 +79,9 @@ metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [resource]
 script = ExtResource("1_p302b")
+region_name = "Gromwelt"
+min_area = 10000
+requires_coast = true
+required_neighbours = Array[ExtResource("1_p302b")]([ExtResource("2_aw40h")])
 sectors = Array[ExtResource("2_7gc3k")]([SubResource("Resource_6rskb")])
 metadata/_custom_type_script = "uid://c7ay238gyh3ys"

@@ -6,13 +6,17 @@ class_name SectorDefinition
 
 @export var size_weight: float = 1.0
 
+@export_group("Size")
+@export var min_area: int = 0
+
+@export_group("Terrain & Visuals")
 @export var terrain_rules: Array[TerrainRuleDefinition] = []
-
-@export var landmarks: Array[LandmarkDefinition] = []
-
+@export var terrain_visuals:Array[TerrainVisualDefinition]
 @export var tile_set: TileSet
 
-@export var terrain_visuals:Array[TerrainVisualDefinition]
+@export_group("Gameplay")
+@export var landmarks: Array[LandmarkDefinition] = []
+
 
 
 """

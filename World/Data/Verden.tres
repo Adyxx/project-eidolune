@@ -179,5 +179,7 @@ metadata/_custom_type_script = "uid://cochdag01raa1"
 
 [resource]
 script = ExtResource("1_k4txx")
+region_name = "Verden"
+min_area = 10000
 sectors = Array[ExtResource("2_p13ah")]([SubResource("Resource_8kwgv"), SubResource("Resource_gw3kp"), SubResource("Resource_keawp")])
 metadata/_custom_type_script = "uid://c7ay238gyh3ys"

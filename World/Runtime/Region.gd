@@ -1,9 +1,10 @@
+
 class_name Region
 
+var id: int
 var definition: RegionDefinition
+
 var sectors: Array[Sector] = []
-
 var center : Vector2
-var cells: Array[Vector2i] = [] 
 
-var area: int = 0
+var current_area: int = 0

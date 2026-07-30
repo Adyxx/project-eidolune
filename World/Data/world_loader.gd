@@ -8,31 +8,33 @@ func load_definitions(world: World) -> void:
 		load("res://World/Data/Altre.tres")
 	]
 
-	for definition in definitions:
-		world.regions.append(create_region(definition))
-
+	for i in range(definitions.size()):
+		var region := create_region(definitions[i])
+		region.id = i
+		world.regions.append(region)
 
 func create_region(definition: RegionDefinition) -> Region:
-
 	var region := Region.new()
 	region.definition = definition
 
-	for sector_definition in definition.sectors:
-		region.sectors.append(create_sector(sector_definition))
-
+	for i in range(definition.sectors.size()):
+		var sector := create_sector(definition.sectors[i])
+		sector.id = i
+		region.sectors.append(sector)
+		
 	return region
-	
 	
 func create_sector(definition: SectorDefinition) -> Sector:
 
 	var sector := Sector.new()
 	sector.definition = definition
 
-	for landmark_definition in definition.landmarks:
-		sector.landmarks.append(create_landmark(landmark_definition))
+	for i in range(definition.landmarks.size()):
+		var landmark := create_landmark(definition.landmarks[i])
+		landmark.id = i
+		sector.landmarks.append(landmark)
 
 	return sector
-	
 	
 func create_landmark(definition: LandmarkDefinition) -> Landmark:
 

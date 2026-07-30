@@ -2,7 +2,6 @@ extends TileMapLayer
 class_name WorldGenerator
 
 var context: GenerationContext
-var sample : Sample
 var world: World
 
 func _ready() -> void:
@@ -13,13 +12,14 @@ func _on_button_pressed() -> void:
 	
 func _new_world() -> void:
 	context = GenerationContext.new()
-	sample = Sample.new(context)
-	
+
 	world = World.new()
-	world.main_seed = randi()
+	world.main_seed =  randi() # 885375362  # -80497186 # -412195953  #  -1166632466  # 1154105539 
 	
 	NoiseInitializer.initialize(context, world.main_seed)
 	WorldLoader.new().load_definitions(world)
+	
+	
 	_generate_world()
 	
 
@@ -76,17 +76,16 @@ func _render_world() -> void:
 					set_cell(cell_pos, source_id, Vector2i(1, 3))
 
 
-
 func _generate_world() -> void:
+	
 	var mask_start = Time.get_ticks_msec()
 	
 	var width = WorldSettings.MAP_WIDTH
 	var height = WorldSettings.MAP_HEIGHT
 
 	var climate_gen_cs = load("res://World/Generation/climate_generator.cs").new()
-	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
 	var sector_gen_cs = load("res://World/Generation/sector_generator.cs").new()
-
+	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
 
 	var results: Dictionary = climate_gen_cs.RunGeneration(
 		WorldSettings.MAP_WIDTH,
@@ -105,26 +104,23 @@ func _generate_world() -> void:
 	context.temperature_map = results["temperature_map"]
 	context.moisture_map = results["moisture_map"]
 	context.land_mask_map = results["land_mask_map"]
-
+	
 	var region_start = Time.get_ticks_msec()
-
+	
+	
+	context.playable_map = PackedByteArray()
+	context.playable_map.resize(width * height)
+	
 	var num_regions = world.regions.size()
-	
-	var region_weights: Array[float] = []
-	for r in world.regions:
-		region_weights.append(r.definition.size_weight)
-		
-	var region_results = region_gen_cs.RunRegionGeneration(
-		width, height, num_regions, 
-		context.height_map, context.land_mask_map, region_weights
+
+	var region_results = region_gen_cs.GenerateRegions(
+		width,
+		height,
+		world,
+		context
 	)
-	
+
 	context.region_id_map = region_results["region_map"]
-	
-	var rx = region_results["centers_x"]
-	var ry = region_results["centers_y"]
-	for r_id in range(num_regions):
-		world.regions[r_id].center = Vector2(rx[r_id], ry[r_id])
 
 	var sector_start = Time.get_ticks_msec()
 
@@ -137,6 +133,7 @@ func _generate_world() -> void:
 			flat_sectors.append(sector)
 			sector_to_region_id.append(r_id)
 			sector_weights.append(sector.definition.size_weight)
+			
 			
 	var total_sectors = flat_sectors.size()
 	
