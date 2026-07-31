@@ -14,6 +14,7 @@ public partial class region_generator : RefCounted
 	private float[] _heightMap;
 	private byte[] _playableMap;
 	private int[] _regionMap;
+	private int[] _riverMap;
 
 	private int _numRegions;
 	private int[] _regionMinAreas;
@@ -75,25 +76,22 @@ public partial class region_generator : RefCounted
 		}
 	}
 
-	public int[] GenerateRegions(
-		int width,
-		int height,
-		GodotObject world,
-		GodotObject context
-	)
+	public int[] GenerateRegions(int width, int height, GodotObject world, GodotObject context)
 	{
 		_width = width;
 		_height = height;
 		_totalCells = width * height;
 		_worldSeed = ((int)world.Get("main_seed"));
-		
+
 		_landMaskMap = ((Variant)context.Get("land_mask_map")).AsByteArray();
 		_heightMap = ((Variant)context.Get("height_map")).AsFloat32Array();
 		_playableMap = ((Variant)context.Get("playable_map")).AsByteArray();
+		_riverMap = ((Variant)context.Get("river_id_map")).AsInt32Array();
 
 		_regionMap = new int[_totalCells];
 		Array.Fill(_regionMap, -1);
-		Array.Fill(_playableMap, (byte)0);
+
+		int mainContinentSize = ((int)world.Get("mainContinentSize"));
 
 		Godot.Collections.Array regionsArray = (Godot.Collections.Array)world.Get("regions");
 		_numRegions = regionsArray.Count;
@@ -116,14 +114,7 @@ public partial class region_generator : RefCounted
 
 		Vector2 worldCenter = (Vector2)context.Get("world_center");
 
-		int startIdx = FindStartLandTile(worldCenter);
-
-		int mainContinentSize = 0;
-		if (startIdx != -1)
-		{
-			mainContinentSize = FloodFillMainContinent(startIdx);
-		}
-
+		int startIdx = ((int)world.Get("startIdx"));
 		int targetCandidatesCount = _numRegions * 9;
 
 		float averageAreaPerCandidate = mainContinentSize / (float)targetCandidatesCount;
@@ -143,9 +134,7 @@ public partial class region_generator : RefCounted
 		GD.Print($" * Main continenet size: {mainContinentSize}");
 		GD.Print($" * Possion points requested: {targetCandidatesCount}");
 		GD.Print($" * Calculated gap between points: {dynamicRadius:F2} px.");
-		GD.Print(
-			$" * Realistically generated: {candidates.Count} Poisson points."
-		);
+		GD.Print($" * Realistically generated: {candidates.Count} Poisson points.");
 
 		GD.Print("==============================================================\n");
 
@@ -190,12 +179,12 @@ public partial class region_generator : RefCounted
 				GodotObject regionInstance = (GodotObject)regionsArray[i];
 				regionInstance.Set("current_area", _currentAreas[i]);
 			}
+
+			AdoptUnclaimedRiverIslands();
 		}
 		else
 		{
-			GD.PrintErr(
-				$" * FAILED TO CREATE SUITABLE REGIONS! ({maxFixAttempts} attempts). Retrying with different seed."
-			);
+			GD.PrintErr($" * FAILED TO CREATE SUITABLE REGIONS! ({maxFixAttempts} attempts).");
 
 			return null;
 		}
@@ -297,7 +286,7 @@ public partial class region_generator : RefCounted
 		return sorted;
 	}
 
-	/* 
+	/*
 	Evenly places poisson points across the playable region.
 	Every point remebers its X, Y, and DistanceToCoast.
 	*/
@@ -323,6 +312,10 @@ public partial class region_generator : RefCounted
 
 		int[] grid = ArrayPool<int>.Shared.Rent(gridWidth * gridHeight);
 		Array.Fill(grid, -1, 0, gridWidth * gridHeight);
+
+		GD.Print(
+			$"CANDIDATES: totalcells: {_totalCells}, radius: {radius}, maxcandidates: {maxCandidates}"
+		);
 
 		int fx = firstTile % _width;
 		int fy = firstTile / _width;
@@ -486,98 +479,6 @@ public partial class region_generator : RefCounted
 		return x >= 0 && x < _width && y >= 0 && y < _height;
 	}
 
-	/* 
-	Finds first main continent tile, starting from world center.
-	*/
-	private int FindStartLandTile(Vector2 worldCenter)
-	{
-		int cx = (int)worldCenter.X;
-		int cy = (int)worldCenter.Y;
-
-		if (IsInBounds(cx, cy))
-		{
-			int centerIdx = cx + cy * _width;
-			if (_landMaskMap[centerIdx] > 0)
-				return centerIdx;
-		}
-
-		for (int r = 1; r < 150; r++)
-		{
-			int minX = cx - r;
-			int maxX = cx + r;
-			int minY = cy - r;
-			int maxY = cy + r;
-
-			for (int x = minX; x <= maxX; x++)
-			{
-				if (IsInBounds(x, minY) && _landMaskMap[x + minY * _width] > 0)
-					return x + minY * _width;
-				if (IsInBounds(x, maxY) && _landMaskMap[x + maxY * _width] > 0)
-					return x + maxY * _width;
-			}
-
-			for (int y = minY + 1; y < maxY; y++)
-			{
-				if (IsInBounds(minX, y) && _landMaskMap[minX + y * _width] > 0)
-					return minX + y * _width;
-				if (IsInBounds(maxX, y) && _landMaskMap[maxX + y * _width] > 0)
-					return maxX + y * _width;
-			}
-		}
-
-		return -1;
-	}
-
-	/*
-	Runs a floodfill on the main continent and maps the playable continent.
-	Returns tile count of the main continent.
-	*/
-	private int FloodFillMainContinent(int startIdx)
-	{
-		int tilesCount = 0;
-		int head = 0;
-		int tail = 0;
-
-		int[] bfsQueue = ArrayPool<int>.Shared.Rent(_totalCells);
-		bfsQueue[tail++] = startIdx;
-		_playableMap[startIdx] = 1;
-
-		Direction[] localDirs = new Direction[]
-		{
-			new Direction(1, true, _width - 1),
-			new Direction(-1, true, 0),
-			new Direction(_width, false, 0),
-			new Direction(-_width, false, 0),
-		};
-
-		while (head < tail)
-		{
-			int idx = bfsQueue[head++];
-			tilesCount++;
-			int cx = idx % _width;
-
-			foreach (var dir in localDirs)
-			{
-				if (dir.CheckBounds && cx == dir.XLimit)
-					continue;
-
-				int nIdx = idx + dir.Offset;
-
-				if (nIdx < 0 || nIdx >= _totalCells)
-					continue;
-
-				if (_landMaskMap[nIdx] > 0 && _playableMap[nIdx] == 0)
-				{
-					_playableMap[nIdx] = 1;
-					bfsQueue[tail++] = nIdx;
-				}
-			}
-		}
-
-		ArrayPool<int>.Shared.Return(bfsQueue);
-		return tilesCount;
-	}
-
 	/*
 	Places a "starting point to grow from" for every region.
 	Uses cost - regions requiring coast have a point selected near coast
@@ -662,9 +563,7 @@ public partial class region_generator : RefCounted
 			}
 			else
 			{
-				GD.PrintErr(
-					$" * ERROR: Failed to find free poisson point for region {region.Id}!"
-				);
+				GD.PrintErr($" * ERROR: Failed to find free poisson point for region {region.Id}!");
 			}
 		}
 
@@ -742,7 +641,7 @@ public partial class region_generator : RefCounted
 				if (nIdx < 0 || nIdx >= _totalCells)
 					continue;
 
-				if (_playableMap[nIdx] > 0 && _regionMap[nIdx] == -1)
+				if (_playableMap[nIdx] > 0 && _regionMap[nIdx] == -1 && _riverMap[nIdx] == -1)
 				{
 					if (_currentAreas[currentRegionId] < _regionMinAreas[currentRegionId])
 					{
@@ -753,13 +652,12 @@ public partial class region_generator : RefCounted
 						float cost =
 							distanceWeight
 							+ (heightDelta * terrainWeight)
-							+ ((float)rand.NextDouble() * 0.15f);
+							+ ((float)rand.NextDouble() * 0.1f);
 						_openSet.Enqueue(nIdx, cost);
 					}
 				}
 			}
 		}
-
 		ArrayPool<int>.Shared.Return(parentIndices);
 	}
 
@@ -816,7 +714,7 @@ public partial class region_generator : RefCounted
 				if (nIdx < 0 || nIdx >= _totalCells)
 					continue;
 
-				if (_playableMap[nIdx] > 0 && _regionMap[nIdx] == -1)
+				if (_playableMap[nIdx] > 0 && _regionMap[nIdx] == -1 && _riverMap[nIdx] == -1)
 				{
 					_regionMap[nIdx] = currentRegionId;
 					parentIndices[nIdx] = idx;
@@ -881,5 +779,99 @@ public partial class region_generator : RefCounted
 		}
 
 		return false;
+	}
+
+	/*
+	Experimental function. Detect unclaimed areas of the main continent (if for instance they get cut by the river).
+	And selects most suitable region do claim this area.
+	*/
+	private void AdoptUnclaimedRiverIslands()
+	{
+		bool[] visited = ArrayPool<bool>.Shared.Rent(_totalCells);
+		Array.Clear(visited, 0, _totalCells);
+
+		int[] bfsQueue = ArrayPool<int>.Shared.Rent(_totalCells);
+
+		Direction[] localDirs = new Direction[]
+		{
+			new Direction(1, true, _width - 1),
+			new Direction(-1, true, 0),
+			new Direction(_width, false, 0),
+			new Direction(-_width, false, 0),
+		};
+
+		for (int startIdx = 0; startIdx < _totalCells; startIdx++)
+		{
+			if (_playableMap[startIdx] == 0 || _regionMap[startIdx] != -1 || visited[startIdx])
+				continue;
+
+			int head = 0;
+			int tail = 0;
+
+			List<int> islandTiles = new List<int>();
+			HashSet<int> touchingRegionIds = new HashSet<int>();
+
+			bfsQueue[tail++] = startIdx;
+			visited[startIdx] = true;
+
+			while (head < tail)
+			{
+				int idx = bfsQueue[head++];
+				islandTiles.Add(idx);
+				int cx = idx % _width;
+
+				foreach (var dir in localDirs)
+				{
+					if (dir.CheckBounds && cx == dir.XLimit)
+						continue;
+
+					int nIdx = idx + dir.Offset;
+					if (nIdx < 0 || nIdx >= _totalCells)
+						continue;
+
+					if (_regionMap[nIdx] != -1)
+					{
+						touchingRegionIds.Add(_regionMap[nIdx]);
+					}
+					else if (_playableMap[nIdx] > 0 && !visited[nIdx])
+					{
+						visited[nIdx] = true;
+						bfsQueue[tail++] = nIdx;
+					}
+				}
+			}
+
+			if (touchingRegionIds.Count == 0)
+				continue;
+
+			int bestParentId = -1;
+			float lowestScale = float.MaxValue;
+
+			foreach (int rId in touchingRegionIds)
+			{
+				float scale = (float)_currentAreas[rId] / _regionMinAreas[rId];
+
+				if (scale < lowestScale)
+				{
+					lowestScale = scale;
+					bestParentId = rId;
+				}
+			}
+
+			if (bestParentId != -1)
+			{
+				foreach (int tileIdx in islandTiles)
+				{
+					_regionMap[tileIdx] = bestParentId;
+					_currentAreas[bestParentId]++;
+				}
+				GD.Print(
+					$" Isolated area with size: {islandTiles.Count} tiles got adpoted by ID {bestParentId} (Size scale: {lowestScale * 100f:F1}%)"
+				);
+			}
+		}
+
+		ArrayPool<bool>.Shared.Return(visited);
+		ArrayPool<int>.Shared.Return(bfsQueue);
 	}
 }

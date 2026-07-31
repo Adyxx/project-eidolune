@@ -3,6 +3,7 @@ class_name WorldGenerator
 
 var context: GenerationContext
 var world: World
+var settings: WorldSettings
 
 func _ready() -> void:
 	_new_world()
@@ -14,6 +15,8 @@ func _new_world() -> void:
 	context = GenerationContext.new()
 
 	world = World.new()
+	settings = WorldSettings.new()
+	
 	world.main_seed =  randi() # 885375362  # -80497186 # -412195953  #  -1166632466  # 1154105539 
 	
 	NoiseInitializer.initialize(context, world.main_seed)
@@ -26,11 +29,11 @@ func _new_world() -> void:
 enum RenderMode {
 	LAND_MASS,
 	REGIONS,
-	SECTORS
+	SECTORS,
+	RIVERS
 }
 
 @export var current_render_mode: RenderMode = RenderMode.SECTORS
-
 
 func _render_world() -> void:
 	clear() 
@@ -38,12 +41,17 @@ func _render_world() -> void:
 	var width: int = WorldSettings.MAP_WIDTH
 	var height: int = WorldSettings.MAP_HEIGHT
 	var land_mask: PackedByteArray = context.land_mask_map
-	
+
 	var active_map: PackedInt32Array
-	if current_render_mode == RenderMode.REGIONS:
+	if current_render_mode == RenderMode.REGIONS and not context.region_id_map.is_empty():
 		active_map = context.region_id_map
-	elif current_render_mode == RenderMode.SECTORS:
+	elif current_render_mode == RenderMode.SECTORS and not context.sector_id_map.is_empty():
 		active_map = context.sector_id_map
+	elif current_render_mode == RenderMode.RIVERS and not context.river_id_map.is_empty():
+		active_map = context.river_id_map
+
+	var river_map: PackedInt32Array = context.river_id_map
+	var has_rivers: bool = not river_map.is_empty()
 
 	var cell_pos := Vector2i.ZERO
 	var source_id: int = 0
@@ -60,20 +68,34 @@ func _render_world() -> void:
 				set_cell(cell_pos, source_id, Vector2i(0, 0))
 				continue
 				
+			if current_render_mode != RenderMode.LAND_MASS and has_rivers and river_map[idx] != -1:
+				set_cell(cell_pos, source_id, Vector2i(0,0))
+				continue
+
 			if current_render_mode == RenderMode.LAND_MASS:
 				set_cell(cell_pos, source_id, Vector2i(1, 0))
-			else:
-				var target_id: int = active_map[idx]
-				if target_id != -1:
-					if current_render_mode == RenderMode.REGIONS:
-						var tile_x: int = 1 + (target_id % 3)
-						set_cell(cell_pos, source_id, Vector2i(tile_x, 0))
-					else:
-						var tile_x: int = 1 + (target_id % 3)
-						var tile_y: int = (target_id / 3) % 3
-						set_cell(cell_pos, source_id, Vector2i(tile_x, tile_y))
+				continue
+			
+			if current_render_mode == RenderMode.RIVERS:
+				set_cell(cell_pos, source_id, Vector2i(1, 0))
+				continue
+
+			if active_map.is_empty():
+				set_cell(cell_pos, source_id, Vector2i(1, 3))
+				continue
+
+			var target_id: int = active_map[idx]
+			if target_id != -1:
+				if current_render_mode == RenderMode.REGIONS:
+					var tile_x: int = 1 + (target_id % 3)
+					set_cell(cell_pos, source_id, Vector2i(tile_x, 0))
 				else:
-					set_cell(cell_pos, source_id, Vector2i(1, 3))
+					var tile_x: int = 1 + (target_id % 3)
+					var tile_y: int = (target_id / 3) % 3
+					set_cell(cell_pos, source_id, Vector2i(tile_x, tile_y))
+			else:
+				set_cell(cell_pos, source_id, Vector2i(1, 3))
+
 
 
 func _generate_world() -> void:
@@ -87,60 +109,55 @@ func _generate_world() -> void:
 	var sector_gen_cs = load("res://World/Generation/sector_generator.cs").new()
 	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
 	var river_gen_cs = load("res://World/Generation/river_generator.cs").new()
+
+	context.playable_map = PackedByteArray()
+	context.playable_map.resize(width * height)
 	
+	context.river_id_map = PackedInt32Array()
+	context.river_id_map.resize(width * height)
+	context.river_id_map.fill(-1)
 	
 	var results: Dictionary = climate_gen_cs.RunGeneration(
-		WorldSettings.MAP_WIDTH,
-		WorldSettings.MAP_HEIGHT,
-		WorldSettings.SEA_LEVEL,
-		WorldSettings.CONTINENT_FALLOFF,
-		WorldSettings.DOMAIN_WARP_STRENGTH,
-		context.height,
-		context.temperature,
-		context.moisture,
-		context.warp_x,
-		context.warp_y
+		settings, context
 	)
 	
 	context.height_map = results["height_map"]
 	context.temperature_map = results["temperature_map"]
 	context.moisture_map = results["moisture_map"]
 	context.land_mask_map = results["land_mask_map"]
+	context.playable_map = results["playable_map"]
+	world.mainContinentSize = results["mainContinentSize"]
+	world.startIdx = results["startIdx"]
 	
-	var region_start = Time.get_ticks_msec()
-	
-	
-	context.playable_map = PackedByteArray()
-	context.playable_map.resize(width * height)
-	
-
-	var region_results = region_gen_cs.GenerateRegions(width, height, world, context)
-
-	context.region_id_map = region_results
-
-	var sector_start = Time.get_ticks_msec()
-
-	# TODO: Implement validation and retry for meeting the min size requirment.
-	# Currently the min sizes of sectors are not guaranteed.
-	
-	var sector_map_result = sector_gen_cs.RunSectorGeneration(width, height, world, context)
-	context.sector_id_map = sector_map_result
+	# TODO: Tweak river logic.
+	# Currently it can hit different water source too early and end prematurely.
 	
 	var river_start = Time.get_ticks_msec()
-	
 	var river_results = river_gen_cs.GenerateRivers(width, height, world, context)
-	#context.river_id_map = river_results
+
+	# TODO: Maybe at some point, tweak region relocation logic.
+	# Implementation of rivers decreased chance to correctly generate regions.
 	
+	var region_start = Time.get_ticks_msec()
+	var region_results = region_gen_cs.GenerateRegions(width, height, world, context)
+	context.region_id_map = region_results
+	
+	# TODO: Implement validation and retry for meeting the min size requirment.
+	# Currently the min sizes of sectors are not guaranteed.
+	# TODO: Make sectors respect the rivers and not spread through them.
+	
+	var sector_start = Time.get_ticks_msec()
+	var sector_map_result = sector_gen_cs.GenerateSectors(width, height, world, context)
+
 	var render_start = Time.get_ticks_msec()
-	
 	_render_world()
 	
 	var end = Time.get_ticks_msec()
 
-	print("Generating land:", (region_start-mask_start) / 1000.0, " seconds")
+	print("Generating land:", (river_start-mask_start) / 1000.0, " seconds")
+	print("Generating rivers:", (region_start-river_start) / 1000.0, " seconds")
 	print("Generating regions:", (sector_start-region_start) / 1000.0, " seconds")
-	print("Generation sectors:", (river_start-sector_start) / 1000.0, " seconds")
-	print("Generation rivers:", (render_start-river_start) / 1000.0, " seconds")
+	print("Generating sectors:", (render_start-sector_start) / 1000.0, " seconds")
 	print("Rendering :", (end-render_start) / 1000.0, " seconds")
 	
 	

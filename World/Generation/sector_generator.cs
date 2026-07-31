@@ -44,7 +44,7 @@ public partial class sector_generator : RefCounted
 		}
 	}
 
-	public int[] RunSectorGeneration(int width, int height, GodotObject world, GodotObject context)
+	public int[] GenerateSectors(int width, int height, GodotObject world, GodotObject context)
 	{
 		InitializeGenerator(width, height, world, context);
 
@@ -56,9 +56,10 @@ public partial class sector_generator : RefCounted
 
 		GrowSectorsToMinimums();
 
-
 		FinishClaimingRegions();
-
+		
+		SaveResultsToGodot(world, context);
+		
 		return _sectorMap;
 	}
 
@@ -252,7 +253,6 @@ public partial class sector_generator : RefCounted
 				int targetRegionId = _regionMap[nIdx];
 				if (targetRegionId == _sectorRegionIds[currentSectorId] && _sectorMap[nIdx] == -1)
 				{
-
 					if (_currentSectorAreas[currentSectorId] < _sectorMinAreas[currentSectorId])
 					{
 						_sectorMap[nIdx] = currentSectorId;
@@ -320,4 +320,30 @@ public partial class sector_generator : RefCounted
 		ArrayPool<int>.Shared.Return(parentIndices);
 	}
 
+	private void SaveResultsToGodot(GodotObject world, GodotObject context)
+	{
+		Godot.Collections.Array regionsArray = (Godot.Collections.Array)world.Get("regions");
+		for (int s = 0; s < _totalSectorsCount; s++)
+		{
+			int myRegionId = _sectorRegionIds[s];
+			int centerIdx = _sectorCentersIdx[s];
+			Godot.Collections.Array sectorsArray = (Godot.Collections.Array)
+				((GodotObject)regionsArray[myRegionId]).Get("sectors");
+			foreach (GodotObject sectorObj in sectorsArray)
+			{
+				if ((int)sectorObj.Get("id") == s)
+				{
+					// Uložíme finální data přímo do runtime třídy Sector v Godotu
+
+					sectorObj.Set("center", new Vector2(centerIdx % _width, centerIdx / _width));
+					sectorObj.Set("current_area", _currentSectorAreas[s]);
+					break;
+				}
+			}
+		}
+
+		// Zapíšeme mapu do kontextu
+
+		context.Set("sector_id_map", _sectorMap);
+	}
 }

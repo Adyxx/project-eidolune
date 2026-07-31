@@ -1,25 +1,22 @@
 extends Resource
 class_name RiverDefinition
 
-@export var river_name: String = "Svatá řeka"
+@export var river_name: String = ""
 
-enum RiverType {
-	BORDER,
-	THROUGH_SECTORS
-}
-@export var type: RiverType = RiverType.THROUGH_SECTORS
+@export_group("Structure")
+@export var length_tiles: int = 150
+@export var thickness: float = 0.5
 
-@export_group("Trasa (Použije se pro THROUGH_SECTORS)")
-@export var region_path: Array[RegionDefinition] = []
-@export var sector_path: Array[SectorDefinition] = []
+@export_group("Noise")
+@export var corridor_width: float = 20.0
+@export var noise_frequency: float = 0.03
 
-@export_group("Přírodní Hranice (Použije se pro BORDER)")
-@export var target_border_region: RegionDefinition
+@export_group("Branching")
+# Position on this river (as a percentage from 0.0 to 1.0) where the branch is to diverge.
+# E.g., 0.5 means the new branch diverges exactly halfway along the length of this river.
+@export_range(0.1, 0.9) var branch_start_percentage: float = 0.5
 
-enum RiverEndType {
-	SEA,
-	LAKE
-}
+# Turn angle (in mirror mode, e.g., -45 degrees left, +45 right)
+@export_range(-90, 90) var branch_angle_degrees: float = 45.0
 
-@export_group("Zakončení toku (Použije se pro THROUGH_SECTORS)")
-@export var end_type: RiverEndType = RiverEndType.SEA
+@export var sub_branches: Array[RiverDefinition] = []

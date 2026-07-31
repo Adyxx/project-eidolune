@@ -1,9 +1,13 @@
 [gd_resource type="Resource" script_class="RiverDefinition" format=3 uid="uid://bvskjceh7d2fl"]
 
-[ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_b3gkb"]
+[ext_resource type="Resource" uid="uid://0lxvnobxdb5y" path="res://World/Data/Rivers/branch_one.tres" id="2_8wl8m"]
 [ext_resource type="Script" uid="uid://bufjorb4ova6l" path="res://World/Definitions/river_definition.gd" id="2_qyyyv"]
-[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="3_7hnu5"]
 
 [resource]
 script = ExtResource("2_qyyyv")
+river_name = "lll"
+thickness = 20.0
+corridor_width = 40.0
+noise_frequency = 0.1
+sub_branches = Array[ExtResource("2_qyyyv")]([ExtResource("2_8wl8m")])
 metadata/_custom_type_script = "uid://bufjorb4ova6l"

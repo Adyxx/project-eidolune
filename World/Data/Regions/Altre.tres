@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RegionDefinition" format=3 uid="uid://bh0id80xthvpy"]
+
+[ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_3ha6i"]
+[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_meo2x"]
+[ext_resource type="Resource" uid="uid://jirxffmfxf8c" path="res://World/Data/Sectors/Sector_one.tres" id="3_j15sn"]
+[ext_resource type="Resource" uid="uid://c1f4bt6uam5rf" path="res://World/Data/Sectors/Sector_two.tres" id="4_pv5gh"]
+
+[resource]
+script = ExtResource("1_3ha6i")
+region_name = "Altre"
+min_area = 10000
+sectors = Array[ExtResource("2_meo2x")]([ExtResource("3_j15sn"), ExtResource("4_pv5gh")])
+metadata/_custom_type_script = "uid://c7ay238gyh3ys"
