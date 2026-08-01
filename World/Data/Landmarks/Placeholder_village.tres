@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="LandmarkDefinition" format=3 uid="uid://kqxcise5i773"]
+
+[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="1_bppvs"]
+[ext_resource type="PackedScene" uid="uid://fb50d4avtcaj" path="res://World/Objects/village_landmark.tscn" id="1_raqp7"]
+
+[resource]
+script = ExtResource("1_bppvs")
+landmark_name = "random_place"
+scene = ExtResource("1_raqp7")
+min_distance_from_edge = 20.0
+is_path_connected = true
+metadata/_custom_type_script = "uid://bh3pa3s8bac0l"

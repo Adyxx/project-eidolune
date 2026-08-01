@@ -36,10 +36,6 @@ public partial class river_generator : RefCounted
 		InitializeGenerator(width, height, world, context);
 
 		Godot.Collections.Array riversArray = (Godot.Collections.Array)world.Get("rivers");
-
-		GD.Print($"\n==== GENERATING RIVERS STARTED ====");
-		GD.Print($" * Numbers of rivers requested for generation: {riversArray?.Count ?? 0}");
-
 		if (riversArray == null || riversArray.Count == 0)
 		{
 			context.Set("river_id_map", _riverMap);
@@ -53,13 +49,46 @@ public partial class river_generator : RefCounted
 
 			int riverId = i;
 			riverInstance.Set("id", riverId);
+			string riverName = (string)definition.Get("river_name");
 
-			ExecuteAutonomousRiver(riverId, definition, riverInstance);
+			bool riverSuccessfullyPlaced = false;
+
+			for (int attempt = 0; attempt < 5; attempt++)
+			{
+				GD.Print($" -> Generating river with ID {riverId}: '{riverName}' (Attempt {attempt + 1})");
+
+				int tilesCarved = ExecuteAutonomousRiver(
+					riverId,
+					definition,
+					riverInstance,
+					attempt
+				);
+
+				if (tilesCarved >= 40)
+				{
+					riverSuccessfullyPlaced = true;
+					break;
+				}
+
+				GD.Print(
+					$"    [RETRY]: River '{riverName}' was too short ({tilesCarved} tiles). Finding different coast..."
+				);
+				for (int c = 0; i < _totalCells; i++)
+				{
+					if (_riverMap[c] == riverId)
+						_riverMap[c] = -1;
+				}
+			}
+
+			if (!riverSuccessfullyPlaced)
+			{
+				GD.PrintErr(
+					$" ! WARNING: River '{riverName}' did not find suitable path (5 attempts)."
+				);
+			}
 		}
 
 		context.Set("river_id_map", _riverMap);
-		GD.Print($"==== GENERATING RIVERS FINISHED ====\n");
-
 		return _riverMap;
 	}
 
@@ -78,28 +107,40 @@ public partial class river_generator : RefCounted
 		Array.Fill(_riverMap, -1);
 	}
 
-	private void ExecuteAutonomousRiver(
+	private int ExecuteAutonomousRiver(
 		int riverId,
 		GodotObject definition,
-		GodotObject riverInstance
+		GodotObject riverInstance,
+		int attempt
 	)
 	{
-		string riverName = (string)definition.Get("river_name");
-
-		int startTile = FindRandomCoastalTile();
+		int startTile = FindRandomCoastalTile(riverId, attempt);
 		if (startTile == -1)
-			return;
+			return 0;
 
 		int sx = startTile % _width;
 		int sy = startTile / _width;
 		Vector2 startPos = new Vector2(sx, sy);
 
-		Vector2 mapCenter = new Vector2(_width / 2f, _height / 2f);
-		Vector2 initialDirection = (mapCenter - startPos).Normalized();
+		Vector2 seaVector = Vector2.Zero;
+		for (int ty = -5; ty <= 5; ty++)
+		{
+			for (int tx = -5; tx <= 5; tx++)
+			{
+				int nx = sx + tx;
+				int ny = sy + ty;
+				if (nx >= 0 && nx < _width && ny >= 0 && ny < _height)
+				{
+					if (_landMaskMap[nx + ny * _width] == 0)
+						seaVector += new Vector2(tx, ty);
+				}
+			}
+		}
 
-		GD.Print(
-			$"   -> River on coast: [{sx}, {sy}], going towards: [{initialDirection.X:F2}, {initialDirection.Y:F2}]"
-		);
+		Vector2 initialDirection =
+			seaVector != Vector2.Zero
+				? -seaVector.Normalized()
+				: (new Vector2(_width / 2f, _width / 2f) - startPos).Normalized();
 
 		List<Vector2> allNetworkSplinePoints = new List<Vector2>();
 
@@ -108,7 +149,8 @@ public partial class river_generator : RefCounted
 			startPos,
 			initialDirection,
 			allNetworkSplinePoints,
-			0
+			0,
+			riverId
 		);
 
 		ApplyNoiseCorridor(riverId, allNetworkSplinePoints, definition);
@@ -117,19 +159,15 @@ public partial class river_generator : RefCounted
 		for (int i = 0; i < _totalCells; i++)
 		{
 			if (_riverMap[i] == riverId)
-			{
 				riverTiles.Add(i);
-			}
 		}
 
 		int[] pathArray = new int[riverTiles.Count];
 		for (int t = 0; t < riverTiles.Count; t++)
 			pathArray[t] = riverTiles[t];
-
 		riverInstance.Set("path_tile_indices", pathArray);
-		GD.Print(
-			$" * River'{riverName}' (ID {riverId}) saved. Contains {riverTiles.Count} water tiles."
-		);
+
+		return riverTiles.Count;
 	}
 
 	/*
@@ -140,27 +178,19 @@ public partial class river_generator : RefCounted
 		Vector2 startPos,
 		Vector2 direction,
 		List<Vector2> outGlobalPoints,
-		int depth
+		int depth,
+		int currentRiverId
 	)
 	{
-		string name = (string)branchDef.Get("river_name");
-
 		int lengthTiles = (int)branchDef.Get("length_tiles");
 		float branchStartPct = (float)branchDef.Get("branch_start_percentage");
 
-		string indent = new string(' ', depth * 4);
-		GD.Print(
-			$"{indent}[BRANCH LEVEL {depth}]: Simulate '{name}', length: {lengthTiles} tiles..."
-		);
-
 		Vector2 currentPos = startPos;
 		Vector2 currentDir = direction.Normalized();
-
 		int branchTriggerStep = (int)(lengthTiles * branchStartPct);
 
-		List<Vector2> localBranchPoints = new List<Vector2>();
-
-		Random rand = new Random(_worldSeed + depth * 555);
+		Random rand = new Random(_worldSeed + depth * 555 + currentRiverId * 77);
+		Vector2 lastStoredPos = startPos;
 
 		for (int step = 0; step < lengthTiles; step++)
 		{
@@ -170,16 +200,53 @@ public partial class river_generator : RefCounted
 			if (tx < 0 || tx >= _width || ty < 0 || ty >= _height)
 				break;
 			int idx = tx + ty * _width;
-			if (_landMaskMap[idx] == 0 && step > 5)
+
+			if (_riverMap[idx] != -1 && _riverMap[idx] != currentRiverId && step > 10)
+			{
+				GD.Print(
+					$"    Branch merged with another river - ID {_riverMap[idx]} na kroku {step}."
+				);
+				break;
+			}
+
+			if (_landMaskMap[idx] == 0 && step > 40)
 				break;
 
-			localBranchPoints.Add(currentPos);
+			int x0 = (int)MathF.Round(lastStoredPos.X);
+			int y0 = (int)MathF.Round(lastStoredPos.Y);
+			int x1 = tx;
+			int y1 = ty;
+
+			int dxAbs = Math.Abs(x1 - x0);
+			int dyAbs = Math.Abs(y1 - y0);
+			int sx = x0 < x1 ? 1 : -1;
+			int sy = y0 < y1 ? 1 : -1;
+			int err = dxAbs - dyAbs;
+
+			while (true)
+			{
+				outGlobalPoints.Add(new Vector2(x0, y0));
+				if (x0 == x1 && y0 == y1)
+					break;
+				int e2 = 2 * err;
+				if (e2 > -dyAbs)
+				{
+					err -= dyAbs;
+					x0 += sx;
+				}
+				if (e2 < dxAbs)
+				{
+					err += dxAbs;
+					y0 += sy;
+				}
+			}
+
+			lastStoredPos = currentPos;
 
 			if (step == branchTriggerStep)
 			{
 				Godot.Collections.Array subBranchesArray = (Godot.Collections.Array)
 					branchDef.Get("sub_branches");
-
 				for (int b = 0; b < subBranchesArray.Count; b++)
 				{
 					GodotObject subDef = (GodotObject)subBranchesArray[b];
@@ -188,41 +255,34 @@ public partial class river_generator : RefCounted
 
 					float angleDegrees = (float)subDef.Get("branch_angle_degrees");
 					float radians = angleDegrees * (MathF.PI / 180f);
-
 					float rotX =
 						currentDir.X * MathF.Cos(radians) - currentDir.Y * MathF.Sin(radians);
 					float rotY =
 						currentDir.X * MathF.Sin(radians) + currentDir.Y * MathF.Cos(radians);
-					Vector2 subDirection = new Vector2(rotX, rotY).Normalized();
 
 					SimulateRiverBranchGrowth(
 						subDef,
 						currentPos,
-						subDirection,
+						new Vector2(rotX, rotY),
 						outGlobalPoints,
-						depth + 1
+						depth + 1,
+						currentRiverId
 					);
 				}
 			}
 
-			float wiggle = ((float)rand.NextDouble() - 0.5f) * 0.2f;
+			float wiggle = ((float)rand.NextDouble() - 0.5f) * 0.25f;
 			currentDir = (
 				currentDir + new Vector2(-currentDir.Y, currentDir.X) * wiggle
 			).Normalized();
-
 			currentPos += currentDir;
 		}
-
-		outGlobalPoints.AddRange(localBranchPoints);
-		GD.Print(
-			$"{indent}[BRANCH LEVEL {depth}]: '{name}' finished, simulated {localBranchPoints.Count} points."
-		);
 	}
 
 	/*
 	Function locates a tile near water to start a river from.
 	*/
-	private int FindRandomCoastalTile()
+	private int FindRandomCoastalTile(int riverId, int attempt)
 	{
 		List<int> validCoastTiles = new List<int>();
 		Vector2 mapCenter = new Vector2(_width / 2f, _height / 2f);
@@ -247,7 +307,6 @@ public partial class river_generator : RefCounted
 			{
 				Vector2 tilePos = new Vector2(x, y);
 				Vector2 toCenterDir = (mapCenter - tilePos).Normalized();
-
 				bool isTooNarrow = false;
 
 				for (int test = 1; test <= 25; test++)
@@ -260,10 +319,7 @@ public partial class river_generator : RefCounted
 						isTooNarrow = true;
 						break;
 					}
-
-					int checkIdx = checkX + checkY * _width;
-
-					if (_landMaskMap[checkIdx] == 0)
+					if (_landMaskMap[checkX + checkY * _width] == 0)
 					{
 						isTooNarrow = true;
 						break;
@@ -271,17 +327,12 @@ public partial class river_generator : RefCounted
 				}
 
 				if (!isTooNarrow)
-				{
 					validCoastTiles.Add(i);
-				}
 			}
 		}
 
-		GD.Print($"   [SMART COAST]: Found {validCoastTiles.Count} safe coasts for river start.");
-
 		if (validCoastTiles.Count == 0)
 		{
-			GD.PrintErr(" WARNING: No coast went through the filter. Fallback.");
 			for (int i = 0; i < _totalCells; i++)
 			{
 				if (
@@ -298,56 +349,90 @@ public partial class river_generator : RefCounted
 			return -1;
 		}
 
-		Random rand = new Random(_worldSeed + 123);
+		Random rand = new Random(_worldSeed + riverId * 88 + attempt * 17);
 		return validCoastTiles[rand.Next(validCoastTiles.Count)];
 	}
 
 	private void ApplyNoiseCorridor(int riverId, List<Vector2> splinePoints, GodotObject definition)
 	{
-		float thickness = (float)definition.Get("river_thickness");
+		float corridorWidth = (float)definition.Get("corridor_width");
 		float frequency = (float)definition.Get("noise_frequency");
-		float heightBias = (float)definition.Get("heightmap_bias");
+		float thickness = (float)definition.Get("river_thickness");
+		float heightBias = 1;
 
 		_riverNoise.Seed = _worldSeed + riverId * 1337;
 		_riverNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
 		_riverNoise.Frequency = frequency;
+		_riverNoise.FractalType = FastNoiseLite.FractalTypeEnum.Fbm;
+		_riverNoise.FractalOctaves = 3;
 
-		float baseRadius = thickness * 3.0f;
-		if (baseRadius < 1.0f)
-			baseRadius = 1.0f;
+		int riverTilesCarved = 0;
 
-		for (int i = 0; i < splinePoints.Count; i++)
+		for (int idx = 0; idx < _totalCells; idx++)
 		{
-			Vector2 p = splinePoints[i];
-			int cx = (int)MathF.Round(p.X);
-			int cy = (int)MathF.Round(p.Y);
+			if (_landMaskMap[idx] == 0)
+				continue;
 
-			float noiseMod = _riverNoise.GetNoise2D(cx, cy) * 1.0f;
+			int x = idx % _width;
+			int y = idx / _width;
+			Vector2 tilePos = new Vector2(x, y);
 
-			int radius = (int)MathF.Max(1, MathF.Round(baseRadius + noiseMod));
+			float minDistanceSq = float.MaxValue;
+			int closestNodeIdx = 0;
 
-			for (int dy = -radius; dy <= radius; dy++)
+			for (int i = 0; i < splinePoints.Count; i++)
 			{
-				for (int dx = -radius; dx <= radius; dx++)
+				float distSq = tilePos.DistanceSquaredTo(splinePoints[i]);
+				if (distSq < minDistanceSq)
 				{
-					if (dx * dx + dy * dy > radius * radius)
-						continue;
+					minDistanceSq = distSq;
+					closestNodeIdx = i;
+				}
+			}
 
-					int nx = cx + dx;
-					int ny = cy + dy;
+			float distance = MathF.Sqrt(minDistanceSq);
+			float progressAlongRiver = (float)closestNodeIdx / splinePoints.Count;
 
-					if (nx >= 0 && nx < _width && ny >= 0 && ny < _height)
-					{
-						int nIdx = nx + ny * _width;
+			float startFade = 1.0f;
+			if (closestNodeIdx < 15)
+			{
+				startFade = closestNodeIdx / 15f;
+			}
 
-						if (_landMaskMap[nIdx] > 0 && _riverMap[nIdx] == -1)
-						{
-							if (_heightMap[nIdx] * heightBias < 0.7f)
-							{
-								_riverMap[nIdx] = riverId;
-							}
-						}
-					}
+			float currentWarpStrength = corridorWidth * startFade;
+
+			float warpX = _riverNoise.GetNoise2D(x, y) * currentWarpStrength * 1.5f;
+			float warpY = _riverNoise.GetNoise2D(x + 1000f, y + 1000f) * currentWarpStrength * 1.5f;
+
+			Vector2 warpedTilePos = new Vector2(x + warpX, y + warpY);
+
+			float warpedMinDistanceSq = float.MaxValue;
+			for (int i = 0; i < splinePoints.Count; i++)
+			{
+				float distSq = warpedTilePos.DistanceSquaredTo(splinePoints[i]);
+				if (distSq < warpedMinDistanceSq)
+					warpedMinDistanceSq = distSq;
+			}
+			float warpedDistance = MathF.Sqrt(warpedMinDistanceSq);
+
+			float growthFactor = 1.0f + progressAlongRiver * 1.5f;
+			float currentBaseRadius = thickness * 8.0f * growthFactor;
+
+			float islandNoise = _riverNoise.GetNoise2D(x * 0.4f, y * 0.4f);
+			float thicknessModulation = 1.0f + islandNoise * 0.45f;
+
+			float terrainNarrowing = _heightMap[idx] * heightBias * currentBaseRadius;
+			float finalRiverRadius = (currentBaseRadius * thicknessModulation) - terrainNarrowing;
+
+			if (finalRiverRadius < 1.2f)
+				finalRiverRadius = 1.2f;
+
+			if (warpedDistance < finalRiverRadius)
+			{
+				if (_riverMap[idx] == -1)
+				{
+					_riverMap[idx] = riverId;
+					riverTilesCarved++;
 				}
 			}
 		}

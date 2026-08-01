@@ -17,6 +17,8 @@ var playable_map := PackedByteArray()
 var region_id_map := PackedInt32Array()
 var sector_id_map := PackedInt32Array()
 var river_id_map := PackedInt32Array()
+var path_id_map := PackedInt32Array()
+var bridge_id_map := PackedByteArray()
 
 var world_center := Vector2(
 	WorldSettings.MAP_WIDTH / 2.0,

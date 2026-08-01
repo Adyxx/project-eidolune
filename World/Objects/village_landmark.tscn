@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://fb50d4avtcaj"]
+
+[ext_resource type="Texture2D" uid="uid://dr57sluahwewx" path="res://icon.svg" id="1_snw4d"]
+
+[node name="VillageLandmark" type="Node2D" unique_id=1893546605]
+y_sort_enabled = true
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1303656558]
+texture = ExtResource("1_snw4d")

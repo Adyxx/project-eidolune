@@ -19,7 +19,8 @@ func load_definitions(world: World) -> void:
 			global_landmark_id += sector_def.landmarks.size()
 
 	var river_definitions: Array[RiverDefinition] = [
-		load("res://World/Data/Rivers/River.tres")
+		load("res://World/Data/Rivers/River.tres"),
+		load("res://World/Data/Rivers/Rivertwo.tres"),
 	]
 	
 	for i in range(river_definitions.size()):
@@ -47,7 +48,7 @@ func create_region(definition: RegionDefinition, region_id: int, start_sector_id
 	
 func create_sector(definition: SectorDefinition, global_sector_id: int, start_landmark_id: int) -> Sector:
 	var sector := Sector.new()
-	sector.id = global_sector_id
+	# sector.id = global_sector_id
 	sector.definition = definition
 
 	var current_landmark_id = start_landmark_id

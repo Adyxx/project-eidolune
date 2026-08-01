@@ -14,3 +14,5 @@ enum categorization {
 
 @export var min_distance_from_edge: float # ie. sector-wise... for instance "city cannot be too close to a sector border"
 @export var near_river: bool
+
+@export var is_path_connected: bool

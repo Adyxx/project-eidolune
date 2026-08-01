@@ -6,8 +6,7 @@
 [resource]
 script = ExtResource("2_qyyyv")
 river_name = "lll"
-thickness = 20.0
-corridor_width = 40.0
-noise_frequency = 0.1
+thickness = 1.0
+noise_frequency = 0.015
 sub_branches = Array[ExtResource("2_qyyyv")]([ExtResource("2_8wl8m")])
 metadata/_custom_type_script = "uid://bufjorb4ova6l"

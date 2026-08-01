@@ -6,4 +6,6 @@
 script = ExtResource("1_xlx5m")
 river_name = "small"
 length_tiles = 30
+thickness = 20.0
+noise_frequency = 0.01
 metadata/_custom_type_script = "uid://bufjorb4ova6l"

@@ -57,9 +57,9 @@ public partial class sector_generator : RefCounted
 		GrowSectorsToMinimums();
 
 		FinishClaimingRegions();
-		
+
 		SaveResultsToGodot(world, context);
-		
+
 		return _sectorMap;
 	}
 
@@ -333,17 +333,12 @@ public partial class sector_generator : RefCounted
 			{
 				if ((int)sectorObj.Get("id") == s)
 				{
-					// Uložíme finální data přímo do runtime třídy Sector v Godotu
-
 					sectorObj.Set("center", new Vector2(centerIdx % _width, centerIdx / _width));
 					sectorObj.Set("current_area", _currentSectorAreas[s]);
 					break;
 				}
 			}
 		}
-
-		// Zapíšeme mapu do kontextu
-
 		context.Set("sector_id_map", _sectorMap);
 	}
 }

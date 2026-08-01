@@ -30,17 +30,21 @@ enum RenderMode {
 	LAND_MASS,
 	REGIONS,
 	SECTORS,
-	RIVERS
+	RIVERS,
+	ROADS
 }
 
 @export var current_render_mode: RenderMode = RenderMode.SECTORS
 
-func _render_world() -> void:
+func _render_world(container: Node2D) -> void:
 	clear() 
 	
 	var width: int = WorldSettings.MAP_WIDTH
 	var height: int = WorldSettings.MAP_HEIGHT
 	var land_mask: PackedByteArray = context.land_mask_map
+
+	if land_mask.is_empty():
+		return
 
 	var active_map: PackedInt32Array
 	if current_render_mode == RenderMode.REGIONS and not context.region_id_map.is_empty():
@@ -49,9 +53,16 @@ func _render_world() -> void:
 		active_map = context.sector_id_map
 	elif current_render_mode == RenderMode.RIVERS and not context.river_id_map.is_empty():
 		active_map = context.river_id_map
+	elif current_render_mode == RenderMode.ROADS and not context.path_id_map.is_empty():
+		active_map = context.path_id_map
 
 	var river_map: PackedInt32Array = context.river_id_map
 	var has_rivers: bool = not river_map.is_empty()
+
+	var path_map: PackedInt32Array = context.path_id_map
+	var bridge_map: PackedByteArray = context.bridge_id_map
+	var has_paths: bool = not path_map.is_empty()
+	var has_bridges: bool = not bridge_map.is_empty()
 
 	var cell_pos := Vector2i.ZERO
 	var source_id: int = 0
@@ -68,15 +79,23 @@ func _render_world() -> void:
 				set_cell(cell_pos, source_id, Vector2i(0, 0))
 				continue
 				
+			if current_render_mode != RenderMode.LAND_MASS and has_bridges and bridge_map[idx] == 1:
+				set_cell(cell_pos, source_id, Vector2i(1, 3)) 
+				continue
+
 			if current_render_mode != RenderMode.LAND_MASS and has_rivers and river_map[idx] != -1:
-				set_cell(cell_pos, source_id, Vector2i(0,0))
+				set_cell(cell_pos, source_id, Vector2i(0, 0))
+				continue
+
+			if current_render_mode != RenderMode.LAND_MASS and current_render_mode != RenderMode.RIVERS and has_paths and path_map[idx] != -1:
+				set_cell(cell_pos, source_id, Vector2i(2,3))
 				continue
 
 			if current_render_mode == RenderMode.LAND_MASS:
 				set_cell(cell_pos, source_id, Vector2i(1, 0))
 				continue
 			
-			if current_render_mode == RenderMode.RIVERS:
+			if current_render_mode == RenderMode.RIVERS or current_render_mode == RenderMode.ROADS:
 				set_cell(cell_pos, source_id, Vector2i(1, 0))
 				continue
 
@@ -96,9 +115,30 @@ func _render_world() -> void:
 			else:
 				set_cell(cell_pos, source_id, Vector2i(1, 3))
 
+	for region in world.regions:
+		for sector in region.sectors:
+			for landmark in sector.landmarks:
+				if landmark.position == Vector2.ZERO: continue
+				
+				var landmark_scene: PackedScene = landmark.definition.scene
+				if landmark_scene == null: continue
+				
+				var landmark_instance = landmark_scene.instantiate()
+				var tile_size := 16
+				landmark_instance.global_position = landmark.position * tile_size
+				
+				container.add_child(landmark_instance)
 
 
 func _generate_world() -> void:
+	var old_container = get_node_or_null("LandmarksContainer")
+	if old_container:
+		remove_child(old_container)
+		old_container.free()
+		
+	var landmarks_container = Node2D.new()
+	landmarks_container.name = "LandmarksContainer"
+	add_child(landmarks_container)
 	
 	var mask_start = Time.get_ticks_msec()
 	
@@ -109,7 +149,10 @@ func _generate_world() -> void:
 	var sector_gen_cs = load("res://World/Generation/sector_generator.cs").new()
 	var region_gen_cs = load("res://World/Generation/region_generator.cs").new()
 	var river_gen_cs = load("res://World/Generation/river_generator.cs").new()
-
+	var landmark_gen_cs = load("res://World/Generation/landmark_generator.cs").new()
+	var path_gen_cs = load("res://World/Generation/path_generator.cs").new()
+	
+	
 	context.playable_map = PackedByteArray()
 	context.playable_map.resize(width * height)
 	
@@ -130,7 +173,10 @@ func _generate_world() -> void:
 	world.startIdx = results["startIdx"]
 	
 	# TODO: Tweak river logic.
-	# Currently it can hit different water source too early and end prematurely.
+	# 1. Currently it can hit sea too early and end prematurely.
+	# 2. Sometimes river does not start exactly at coast tile, just near it.
+	# 3. Sometimes the river becomes unconnected (gaps) as it is growing.
+	# 4. Maybe add new parameters regarding general source from where the river flows - so two rivers do not start too close to each other.
 	
 	var river_start = Time.get_ticks_msec()
 	var river_results = river_gen_cs.GenerateRivers(width, height, world, context)
@@ -148,97 +194,31 @@ func _generate_world() -> void:
 	
 	var sector_start = Time.get_ticks_msec()
 	var sector_map_result = sector_gen_cs.GenerateSectors(width, height, world, context)
-
+	#context.sector_id_map = sector_map_result
+	
+	var major_landmark_start = Time.get_ticks_msec()
+	landmark_gen_cs.RunMajorLandmarkGeneration(width, height, world, context)
+	
+	# TODO: Implement additional function for bridge placing.
+	# For islands that belong to playablemapmask, that got cut off by river and became inaccessible.
+	# Probably allow bridges to be placed on the sea tiles (but suppose bridge max length=5, or something like that.
+	
+	var path_start = Time.get_ticks_msec()
+	path_gen_cs.RunPathGeneration(width, height, world, context)
+	
+	var minor_landmark_start = Time.get_ticks_msec()
+	landmark_gen_cs.RunMinorLandmarkGeneration(width, height, world, context)
+	
 	var render_start = Time.get_ticks_msec()
-	_render_world()
+	_render_world(landmarks_container)
 	
 	var end = Time.get_ticks_msec()
 
-	print("Generating land:", (river_start-mask_start) / 1000.0, " seconds")
-	print("Generating rivers:", (region_start-river_start) / 1000.0, " seconds")
-	print("Generating regions:", (sector_start-region_start) / 1000.0, " seconds")
-	print("Generating sectors:", (render_start-sector_start) / 1000.0, " seconds")
-	print("Rendering :", (end-render_start) / 1000.0, " seconds")
-	
-	
-	# FIRST: CREATE WORLD SHAPE. WE GET LAND MASS.
-	# TODO: Use masks, maybe warps and maybe other parameters to create interesting land shape.
-	# For now, let's work with assumption that this is one large continent surrounded by water and not multiple islands.
-	
-	# SECOND: SPLIT THE LAND MASS INTO DIFFERENT SIZE REGIONS 
-	# TODO: randomly place Region's var center : Vector2 somewhere on the land mass.
-	
-	# 1. Additional logic - like points cannot be too close to each other could be added to _generate_world function
-	# 2. Additional logic - like "favors north" or "aras with high wetness" could be added to RegionDefinition
-	
-	# Use voronoi - Grow the region from center BASED ON RegionDefinition.size_weight.
-	# Regions with higher size_weight should have more land than regions with lower size_weight
-	
-
-	# THIRD: THIS IS REALISTICALLY WHERE RIVER PLACEMENT WILL BE.
-	# TODO: Sectors exist, rivers can be placed.
-	# Either rivers follow the edge between sectors (could look nice?)
-	# But they cannot just do that because later I though I might do things like...
-	# "Village lies on top of this river" - which I cannot do if river is only on the sector edge - that could look weird.
-	
-	# CRITICAL: Since river can "rewrite" land mass of some sector, it might be important to then run some balancing check again?
-	# But it should probably not be passing river threshold. If A & B are regions and ~ is water...
-	# And AAAAAAAAABBBB got generated previously, then river would cut it to AAAAA~~~~BBBB
-	# Then the algorith should probably not grow the region back to something like AAAAA~~~~AABB
-	# that would look kind of weird.
-	
-
-	# FOURTH: SPLIT THE REGIONS INTO DIFFERENT SIZE SECTORS
-	# TODO: randomly place Sector's var center : Vector2 somewhere inside its specific Region.
-	
-	# Similar logic described in points 1. 2. in SECOND (region segment) could be added here too.
-	
-	# Use voronoi - Grow the segment from center BASED ON SectorDefinition.size_weight
-	# Sectors with higher size_weight should have more land than sectors with lower size_weight
-	
-	# FIFTH: MAJOR LANDMARKS
-	# TODO: place major Landmarks.
-	# Major Landmarks include Villages, cities, possibly lore important objects - some named pond, etc.
-	# Each major landmark has a specific sector in which it exists.
-	
-	# Landmarks can reserve other specific conditions, such as min_distance_from_edge,
-	# max_distance_from_center, min_distance_from_river, near_road: bool, etc.
-	
-	# CRITICAL: In case that a major landmark could not be placed (suitable spot does not exist)
-	# We cannot be "regenerating world" until everything passes, because that could cause infinite wait.
-	# We need to fix the world - and create the spot for the said landmark. This needs to be fully deterministic,
-	# because same main_seed of the world need to always guarantee same world shape.
-	
-
-	# SIXTH: PATHS
-	# TODO: Place some paths between cities, villages, etc.
-	
-	# This is also DST check that all parts of the map are accessible!
-	# If later we add plants to some region and then this region will be impossible to get to 
-	# For instance it got cut by river, etc., then it is bad.
-	# In this step we should guarantee walkability, including placing bridges over rives.
-	# I might need some rivers to be guaranteed to get a bridge - maybe I will make it a parameter
-	# Int as "bridge count" might be maybe better than bool "guarantee_bridge" ?? 
-	
-
-	# SEVENTH: MINOR LANDMARKS
-	# TODO: place minor Landmarks.
-	# Minor Landmarks include things that visually enchance the world but are not so gameplay important.
-	
-	# Landmarks can reserve other specific conditions, such as min_distance_from_edge,
-	# max_distance_from_center, min_distance_from_river, near_road: bool, etc.
-	
-	# In case that a minor landmark could not be placed (suitable spot does not exist)
-	# We can probably ignore its placement - these will be just decorations.
-	
-
-	# EIGHT: FLORA
-	# TODO: place plants across the world.
-	
-	# Plants can require specific segments, moisture, temperature, etc.
-	# Each plant will have "min_required_patches" variable - which notes how many tiles are spawn points for said plant.
-	
-	# CRITICAL: In case of the placed final patches are less than "min_required_patches", follow in order:
-	# 1. increase spawn chance - Increase local density. (ex. spawnChance: 0.02 -> 0.04)
-	# 2. Condition Relaxation. (ex. reduce requirment from moisture > 0.7 to moisture > 0.68)
-	# repeat 1. > 2. until "min_required_patches" is fulfilled.
+	print("Generating land: ", (river_start-mask_start) / 1000.0, " seconds")
+	print("Generating rivers: ", (region_start-river_start) / 1000.0, " seconds")
+	print("Generating regions: ", (sector_start-region_start) / 1000.0, " seconds")
+	print("Generating sectors: ", (major_landmark_start-sector_start) / 1000.0, " seconds")
+	print("Placing major landmarks: ", (path_start-major_landmark_start) / 1000.0, " seconds")
+	print("Building roads: ", (minor_landmark_start-path_start) / 1000.0, " seconds")
+	print("Placing minor landmarks: ", (render_start-minor_landmark_start) / 1000.0, " seconds")
+	print("Rendering: ", (end-render_start) / 1000.0, " seconds")

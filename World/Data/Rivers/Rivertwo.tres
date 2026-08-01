@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RiverDefinition" format=3 uid="uid://ckdk0a871hj7o"]
+
+[ext_resource type="Script" uid="uid://bufjorb4ova6l" path="res://World/Definitions/river_definition.gd" id="1_71tax"]
+[ext_resource type="Resource" uid="uid://0lxvnobxdb5y" path="res://World/Data/Rivers/branch_one.tres" id="2_hiqpg"]
+
+[resource]
+script = ExtResource("1_71tax")
+river_name = "lll"
+noise_frequency = 0.015
+sub_branches = Array[ExtResource("1_71tax")]([ExtResource("2_hiqpg")])
+metadata/_custom_type_script = "uid://bufjorb4ova6l"

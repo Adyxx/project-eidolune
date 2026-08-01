@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cmajhsu7esycu"]
+
+[ext_resource type="Texture2D" uid="uid://dv8n1ghknnhiu" path="res://Assets/test_tiles2.png" id="1_fgw2f"]
+
+[node name="minor_landmark" type="Node2D" unique_id=425449029]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=463545872]
+texture = ExtResource("1_fgw2f")

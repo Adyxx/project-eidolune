@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SectorDefinition" format=3 uid="uid://dwd6n8upoh252"]
+
+[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="1_m6m0c"]
+[ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_p56je"]
+[ext_resource type="Resource" uid="uid://kqxcise5i773" path="res://World/Data/Landmarks/Placeholder_village.tres" id="2_s8kvg"]
+[ext_resource type="Resource" uid="uid://cnu8ddlhunl1m" path="res://World/Data/Landmarks/minor.tres" id="3_ffg5l"]
+[ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="3_s8kvg"]
+[ext_resource type="Script" uid="uid://6ujgp18ts3mr" path="res://World/Definitions/terrain_visual_definition.gd" id="4_ffg5l"]
+
+[resource]
+script = ExtResource("2_p56je")
+sector_name = "qwwq"
+min_area = 1500
+landmarks = Array[ExtResource("1_m6m0c")]([ExtResource("2_s8kvg"), ExtResource("3_ffg5l")])
+metadata/_custom_type_script = "uid://cochdag01raa1"

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="LandmarkDefinition" format=3 uid="uid://cnu8ddlhunl1m"]
+
+[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="1_4b3f1"]
+[ext_resource type="PackedScene" uid="uid://cmajhsu7esycu" path="res://World/Objects/minor_landmark.tscn" id="1_nijnr"]
+
+[resource]
+script = ExtResource("1_4b3f1")
+landmark_name = "uuo"
+importance = 1
+scene = ExtResource("1_nijnr")
+metadata/_custom_type_script = "uid://bh3pa3s8bac0l"

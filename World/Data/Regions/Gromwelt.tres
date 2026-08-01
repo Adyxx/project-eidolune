@@ -2,83 +2,12 @@
 
 [ext_resource type="Script" uid="uid://c7ay238gyh3ys" path="res://World/Definitions/region_definition.gd" id="1_p302b"]
 [ext_resource type="Script" uid="uid://cochdag01raa1" path="res://World/Definitions/sector_definition.gd" id="2_7gc3k"]
-[ext_resource type="Script" uid="uid://bh3pa3s8bac0l" path="res://World/Definitions/landmark_definition.gd" id="3_o3437"]
-[ext_resource type="Script" uid="uid://wfsa5pu4ug23" path="res://World/Definitions/terrain_rule_definition.gd" id="4_vslmd"]
-[ext_resource type="Script" uid="uid://c0wr8n57curpx" path="res://World/Definitions/noise_settings_definition.gd" id="5_7gc3k"]
-[ext_resource type="Script" uid="uid://6ujgp18ts3mr" path="res://World/Definitions/terrain_visual_definition.gd" id="6_ckvcq"]
-[ext_resource type="Texture2D" uid="uid://dv8n1ghknnhiu" path="res://Assets/test_tiles2.png" id="7_nn6td"]
-
-[sub_resource type="Resource" id="Resource_0m8tn"]
-script = ExtResource("5_7gc3k")
-frequency = 0.07
-octaves = 1
-metadata/_custom_type_script = "uid://c0wr8n57curpx"
-
-[sub_resource type="Resource" id="Resource_48mkn"]
-script = ExtResource("4_vslmd")
-terrain_type = 3
-coverage = 20.0
-noise_settings = SubResource("Resource_0m8tn")
-metadata/_custom_type_script = "uid://wfsa5pu4ug23"
-
-[sub_resource type="Resource" id="Resource_1reol"]
-script = ExtResource("5_7gc3k")
-type = 2
-frequency = 0.2
-octaves = 1
-metadata/_custom_type_script = "uid://c0wr8n57curpx"
-
-[sub_resource type="Resource" id="Resource_x71q1"]
-script = ExtResource("4_vslmd")
-coverage = 80.0
-noise_settings = SubResource("Resource_1reol")
-metadata/_custom_type_script = "uid://wfsa5pu4ug23"
-
-[sub_resource type="Resource" id="Resource_8kwgv"]
-script = ExtResource("6_ckvcq")
-tile_coordinates = Array[Vector2i]([Vector2i(1, 1)])
-metadata/_custom_type_script = "uid://6ujgp18ts3mr"
-
-[sub_resource type="Resource" id="Resource_gw3kp"]
-script = ExtResource("6_ckvcq")
-terrain_type = 4
-tile_coordinates = Array[Vector2i]([Vector2i(2, 2)])
-metadata/_custom_type_script = "uid://6ujgp18ts3mr"
-
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_aw40h"]
-texture = ExtResource("7_nn6td")
-0:0/0 = 0
-1:0/0 = 0
-2:0/0 = 0
-3:0/0 = 0
-0:1/0 = 0
-1:1/0 = 0
-2:1/0 = 0
-3:1/0 = 0
-0:2/0 = 0
-1:2/0 = 0
-2:2/0 = 0
-3:2/0 = 0
-0:3/0 = 0
-1:3/0 = 0
-2:3/0 = 0
-3:3/0 = 0
-
-[sub_resource type="TileSet" id="TileSet_m1e1x"]
-sources/0 = SubResource("TileSetAtlasSource_aw40h")
-
-[sub_resource type="Resource" id="Resource_6rskb"]
-script = ExtResource("2_7gc3k")
-sector_name = "ABCD"
-terrain_rules = Array[ExtResource("4_vslmd")]([SubResource("Resource_48mkn"), SubResource("Resource_x71q1")])
-terrain_visuals = Array[ExtResource("6_ckvcq")]([SubResource("Resource_8kwgv"), SubResource("Resource_gw3kp")])
-tile_set = SubResource("TileSet_m1e1x")
-metadata/_custom_type_script = "uid://cochdag01raa1"
+[ext_resource type="Resource" uid="uid://dwd6n8upoh252" path="res://World/Data/Sectors/Sector_three.tres" id="3_mmycp"]
 
 [resource]
 script = ExtResource("1_p302b")
 region_name = "Gromwelt"
 min_area = 10000
 requires_coast = true
-sectors = Array[ExtResource("2_7gc3k")]([SubResource("Resource_6rskb")])
+sectors = Array[ExtResource("2_7gc3k")]([ExtResource("3_mmycp")])
 metadata/_custom_type_script = "uid://c7ay238gyh3ys"
